@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="GMS_SERVER_URL">http://220.123.107.76:8080</string>
+	<!-- 
+    <string name="GMS_SERVER_URL">http://qrqr.kr:8080</string>
+     -->
+    <string name="GMS_SENDER_ID">917569429144</string>
+    
+    <string name="GMS_MESSAGEBOX_TITLE">알림</string>
+    
+    <string name="btnOk">확인</string>
+    
+</resources>
