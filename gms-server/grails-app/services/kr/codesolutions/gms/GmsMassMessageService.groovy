@@ -18,6 +18,7 @@ class GmsMassMessageService {
 	def GmsMassMessage read(GmsMassMessage gmsMassMessageInstance){
 		if(!gmsMassMessageInstance.isRead){
 			gmsMassMessageInstance.isRead = true
+			gmsMassMessageInstance.status = '2'
 			gmsMassMessageInstance.save flush:true
 		}
 		return gmsMassMessageInstance
