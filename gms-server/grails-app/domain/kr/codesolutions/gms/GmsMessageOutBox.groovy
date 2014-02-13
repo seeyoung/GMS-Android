@@ -4,7 +4,7 @@ import java.util.Date;
 
 class GmsMessageOutBox {
 	static mapping = {
-		id generator:'sequence', params:[sequence:'SEQ_GMSMESSAGEOUTBOX_ID']
+		id generator:'sequence', params:[sequence:'SQ_GMSOUTBOX_ID']
 	}
 
 	static belongsTo = [owner: GmsUser, message: GmsMessage]

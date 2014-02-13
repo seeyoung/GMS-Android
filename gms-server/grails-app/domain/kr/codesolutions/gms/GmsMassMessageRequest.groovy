@@ -4,15 +4,17 @@ package kr.codesolutions.gms
 class GmsMassMessageRequest {
 	static mapping = {
 		version false
-		id column: 'TR_NUM', generator: 'sequence', params: [sequence: 'SEQ_GMSMESSAGE_ID']
-//		senderId column: 'SENDER_ID', defaultValue: 'gmsmaster'
-//		trSendstat column: 'TR_SENDSTAT', defaultValue: '0'
-//		trRsltstat column: 'TR_RSLTSTAT', defaultValue: '00'
-//		trMsgtype column: 'TR_MSGTYPE', defaultValue: '0'
+		id column: 'TR_NUM', generator: 'sequence', params: [sequence: 'SQ_GMSMESSAGE_ID']
+		senderId defaultValue: "'gmsmaster'"
+		trSendstat defaultValue: "'0'"
+		trRsltstat defaultValue: "'00'"
+		trMsgtype defaultValue: "'0'"
+		instance defaultVale: "0"
+		channel defaultVale: "0"
 	}
 
-	int instance = 0 // 서버 Instance 번호
-	int channel = 0 // 메시지 발송 채널 번호
+	byte instance = 0 // 서버 Instance 번호
+	byte channel = 0 // 메시지 발송 채널 번호
 	String recipientId //(수신자 userId)
 	String senderId = 'gmsmaster' //송신자 userId, default:'gmsmaster'
 	String registrationId // GCM 등록ID

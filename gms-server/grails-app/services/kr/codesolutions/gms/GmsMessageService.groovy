@@ -235,9 +235,9 @@ class GmsMessageService {
 		if(results != null){
 			results.each { box ->
 				if(!box.isDirty()){
-					box.delete flush:true
 					log.info "message ${box.message.id} is moved to sendingbox."
 					new GmsMessageSendingBox(message:box.message).save flush:true
+					box.delete flush:true
 				}
 			}
 		}
@@ -259,9 +259,9 @@ class GmsMessageService {
 		if(results != null){
 			results.each { box ->
 				if(!box.isDirty()){
-					box.delete flush:true
 					log.info "message ${box.message.id} is moved to waitingbox."
 					new GmsMessageWaitingBox(message:box.message).save flush:true
+					box.delete flush:true
 				}
 			}
 		}
@@ -278,7 +278,6 @@ class GmsMessageService {
 		if(results != null){
 			results.each { box ->
 				if(!box.isDirty()){
-					box.delete flush:true
 					send(box.message)
 					log.info "message ${box.message.id} is sent."
 					if(box.message.sendPolicy == 'ADVENCED'){
@@ -288,6 +287,7 @@ class GmsMessageService {
 						log.info "message ${box.message.id} is moved to sentBox."
 						new GmsMessageSentBox(message:box.message).save flush:true
 					}
+					box.delete flush:true
 				}
 			}
 		}
@@ -304,7 +304,6 @@ class GmsMessageService {
 		if(results != null){
 			results.each { box ->
 				if(!box.isDirty()){
-					box.delete flush:true
 					// 발신오류가 발생한 수신자의 errorCount를 증가시킨다. errorCount가 3이상이면 사용불가
 					def gcmRecipients = box.message.recipients.grep{it.error != null}
 					gcmRecipients.each{ gmsMessageRecipientInstance ->
@@ -314,6 +313,7 @@ class GmsMessageService {
 					}
 					log.info "message ${box.message.id} is moved to completeBox."
 					new GmsMessageCompleteBox(message:box.message).save flush:true
+					box.delete flush:true
 				}
 			}
 		}
@@ -333,7 +333,6 @@ class GmsMessageService {
 		if(results != null){
 			results.each { box ->
 				if(!box.isDirty()){
-					box.delete flush:true
 					// 수신자가 1명이라도 확인하지 않는 메시지는 모든 수신자에게 SMS로 재발송한다.
 					if(!box.message.isRead){
 						log.info "message ${box.message.id} is resent."
@@ -341,6 +340,7 @@ class GmsMessageService {
 					}
 					log.info "message ${box.message.id} is moved to sentBox."
 					new GmsMessageSentBox(message:box.message).save flush:true
+					box.delete flush:true
 				}
 			}
 		}
@@ -361,9 +361,9 @@ class GmsMessageService {
 		if(results != null){
 			results.each { box ->
 				if(!box.isDirty()){
-					box.delete flush:true
 					log.info "message ${box.message.id} is moved to terminateBox."
 					new GmsMessageTerminateBox(message:box.message).save flush:true
+					box.delete flush:true
 				}
 			}
 		}

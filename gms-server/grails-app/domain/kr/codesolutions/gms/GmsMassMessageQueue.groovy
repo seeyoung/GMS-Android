@@ -6,12 +6,12 @@ import java.util.Date;
 class GmsMassMessageQueue {
 	static mapping = {
 		version false
-		id column: 'MESSAGE_ID'
+		id  generator:'sequence', params:[sequence:'SQ_GMSQUEUE_ID']
 		channel index: 'IDX_GMSMASSMESSAGEQUEUE_1'
 	}
 	
-	int instance // 서버 Instance 번호
-	int channel // 메시지 발송 채널 번호
+	byte instance // 서버 Instance 번호
+	byte channel // 메시지 발송 채널 번호
 	static belongsTo = [message: GmsMassMessage]
 	
 	Date createdTime

@@ -4,7 +4,7 @@ import java.util.Date;
 
 class GmsConstantSendType {
 	static mapping = {
-		id generator:'sequence', params:[sequence:'SEQ_GMSCONSTANTSENDTYPE_ID']
+		id generator:'sequence', params:[sequence:'SQ_GMSSENDTYPE_ID']
 	}
 
 	String name

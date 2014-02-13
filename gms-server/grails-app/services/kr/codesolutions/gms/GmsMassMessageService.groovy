@@ -11,6 +11,7 @@ import com.google.android.gcm.server.Sender
 
 @Transactional
 class GmsMassMessageService {
+	boolean transactional = true
 	def grailsApplication
 	def sessionFactory
 	Sender gcmSender
@@ -76,9 +77,14 @@ class GmsMassMessageService {
 							}
 						}
 		def results = criteria.list(max:queueSize, sort:'id', order:'asc')
-		results.each { gmsTranQueueInstance -> 
-			sendGCM(gmsTranQueueInstance.message)
-			gmsTranQueueInstance.delete()
+		results.each { gmsMassMessageQueueInstance -> 
+			try{
+				sendGCM(gmsMassMessageQueueInstance.message)
+				gmsMassMessageQueueInstance.delete()
+			}catch(Exception ex){
+				gmsMassMessageQueueInstance.message.error = ex.message
+				log.error ex.message
+			}
 		}
 		log.info("Transfered((Intance: #${instance}, Channel: #${channel}, queueSize: ${queueSize}) : ${results.size()} messages transfered to GCM")
 	}
@@ -140,43 +146,44 @@ class GmsMassMessageService {
 		if(count > 0){
 			channels.each { channel ->
 				def (allocated, validated, created, queued, deleted) = [0, 0, 0, 0]
-				// registrationId가 있으면 queueSize만큼씩 각 channel에 할당하여 queue로 이동한다.
-				allocated = sql.executeUpdate("""
-										UPDATE gms_mass_message_request 
-										   SET channel = ${channel} 
-										 WHERE instance = ${instance}
-										   AND channel = 0
-										   AND ROWNUM <= ${queueSize}
-										""")
-				if(allocated > 0){
-					validated = sql.executeUpdate("""
-									UPDATE gms_mass_message_request t 
-									   SET registration_id = (SELECT u.registration_id FROM gms_user u WHERE u.user_id=t.recipient_id) 
-									 WHERE instance = ${instance}
-									   AND channel = ${channel} 
-									""")
-
-					created = sql.executeUpdate("""
-										INSERT INTO gms_mass_message(message_id, instance, channel, event_id, own_type, msg_type, content, recipient_id, registration_id, sender_id, req_send_time, is_sent, is_read, is_terminated, status, created_time, modified_time)
-											SELECT tr_num, instance, channel, tr_serialnum, '1', tr_msgtype, tr_msg, recipient_id, registration_id, sender_id, tr_senddate, false, false, false, '0', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP 
-											  FROM gms_mass_message_request
+				sql.withTransaction {
+					// registrationId가 있으면 queueSize만큼씩 각 channel에 할당하여 queue로 이동한다.
+					allocated = sql.executeUpdate("""
+											UPDATE gms_mass_message_request 
+											   SET channel = ${channel} 
 											 WHERE instance = ${instance}
-											   AND channel = ${channel}
+											   AND channel = 0
+											   AND ROWNUM <= ${queueSize}
+											""")
+					if(allocated > 0){
+						validated = sql.executeUpdate("""
+										UPDATE gms_mass_message_request t 
+										   SET registration_id = (SELECT u.registration_id FROM gms_user u WHERE u.user_id=t.recipient_id) 
+										 WHERE instance = ${instance}
+										   AND channel = ${channel} 
 										""")
-					queued = sql.executeUpdate("""
-										INSERT INTO gms_mass_message_queue(instance, channel, message_id, created_time, modified_time)
-												SELECT instance, channel, tr_num, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP 
+	
+						created = sql.executeUpdate("""
+											INSERT INTO gms_mass_message(message_id, instance, channel, event_id, own_type, msg_type, content, recipient_id, registration_id, sender_id, req_send_time, is_sent, is_read, is_terminated, status, created_time, modified_time)
+												SELECT tr_num, instance, channel, tr_serialnum, '1', tr_msgtype, tr_msg, recipient_id, registration_id, sender_id, tr_senddate, 0, 0, 0, '0', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP 
 												  FROM gms_mass_message_request
 												 WHERE instance = ${instance}
 												   AND channel = ${channel}
-										""")
-					deleted = sql.executeUpdate("""
-										DELETE gms_mass_message_request 
-										 WHERE instance = ${instance} 
-										   AND channel = ${channel}
-										""")
+											""")
+						queued = sql.executeUpdate("""
+											INSERT INTO gms_mass_message_queue(id, instance, channel, message_id, created_time, modified_time)
+													SELECT SQ_GMSQUEUE_ID.nextval,instance, channel, tr_num, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP 
+													  FROM gms_mass_message_request
+													 WHERE instance = ${instance}
+													   AND channel = ${channel}
+											""")
+						deleted = sql.executeUpdate("""
+											DELETE gms_mass_message_request 
+											 WHERE instance = ${instance} 
+											   AND channel = ${channel}
+											""")
+					}
 				}
-				
 				log.info "Dispatched (Intance: #${instance}, Channel: #${channel}, queueSize: ${queueSize}): ${allocated} channel allocated, ${validated} requests validated, ${created} messages created, ${queued} messages queued, ${deleted} requests deleted"
 				if(allocated < queueSize){
 					return
@@ -193,8 +200,8 @@ class GmsMassMessageService {
 	 */
 	def terminateMessage(int instance, int terminatePreserveDays) {
 		def queueSize = 10000
-		def terminateDate = use(TimeCategory) { new Date() - 30.seconds}// terminatePreserveDays.days}
-		def tableName = "GMS_MASS_MESSAGE_LOG_${terminateDate.format('yyyyMM')}"
+		def terminateDate = use(TimeCategory) { new Date() - 30.seconds}.format('yyyyMMddHHmmss')
+		def tableName = "GMS_MASS_MESSAGE_LOG_${terminateDate.subSequence(0, 6)}"
 		def sql = new Sql(sessionFactory.currentSession.connection())
 		
 		createLogTableIfNotExist(sql, tableName)
@@ -203,33 +210,35 @@ class GmsMassMessageService {
 								SELECT COUNT(1) as count 
 								  FROM gms_mass_message 
 								 WHERE instance = ${instance} 
-								   AND sent_time <= ${terminateDate} 
+								   AND sent_time <= TO_DATE(${terminateDate},'YYYYMMDDHH24MISS')
 								   AND sent_time IS NOT NULL
-								   AND is_terminated = false
+								   AND is_terminated = 0
 								   AND ROWNUM = 1
 								""").count
 		if(count > 0){
-			terminated = sql.executeUpdate("""
-											UPDATE gms_mass_message 
-											   SET is_terminated = true
-											 WHERE instance = ${instance} 
-											   AND sent_time <= ${terminateDate}
-											   AND sent_time IS NOT NULL
-											   AND is_terminated = false
-											   AND ROWNUM <= ${queueSize}
-											""")
-			moved = sql.executeUpdate("""
-									INSERT INTO ${Sql.expand(tableName)}(message_id, instance, channel, event_id, own_type, msg_type, content, recipient_id, registration_id, sender_id, req_send_time, is_sent, sent_time, is_read, read_time, status, error, is_terminated, created_time, modified_time)
-										SELECT message_id, instance, channel, event_id, own_type, msg_type, content, recipient_id, registration_id, sender_id, req_send_time, is_sent, sent_time, is_read, read_time, status, error, is_terminated, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP 
-										  FROM gms_mass_message
+			sql.withTransaction {
+				terminated = sql.executeUpdate("""
+												UPDATE gms_mass_message 
+												   SET is_terminated = 1
+												 WHERE instance = ${instance} 
+												   AND sent_time <= TO_DATE(${terminateDate},'YYYYMMDDHH24MISS')
+												   AND sent_time IS NOT NULL
+												   AND is_terminated = 0
+												   AND ROWNUM <= ${queueSize}
+												""")
+				moved = sql.executeUpdate("""
+										INSERT INTO ${Sql.expand(tableName)}(message_id, instance, channel, event_id, own_type, msg_type, content, recipient_id, registration_id, sender_id, req_send_time, is_sent, sent_time, is_read, read_time, status, error, is_terminated, created_time, modified_time)
+											SELECT message_id, instance, channel, event_id, own_type, msg_type, content, recipient_id, registration_id, sender_id, req_send_time, is_sent, sent_time, is_read, read_time, status, error, is_terminated, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP 
+											  FROM gms_mass_message
+											 WHERE instance = ${instance}
+											   AND is_terminated = 1
+										""")
+				deleted = sql.executeUpdate("""
+										DELETE gms_mass_message 
 										 WHERE instance = ${instance}
-										   AND is_terminated = true
-									""")
-			deleted = sql.executeUpdate("""
-									DELETE gms_mass_message 
-									 WHERE instance = ${instance}
-									   AND is_terminated = true
-									""")
+										   AND is_terminated = 1
+										""")
+			}
 		}
 		log.info "Terminated (Intance: #${instance}, terminatePreserveDays: ${terminatePreserveDays}, queueSize: ${queueSize}): ${terminated} terminated, ${moved} moved to Log, ${deleted} deleted from message"
 	}
@@ -240,26 +249,26 @@ class GmsMassMessageService {
 		}catch(Exception ex){
 			sql.execute("""
 				CREATE TABLE ${Sql.expand(tableName)}(
-					message_id 		BIGINT NOT NULL PRIMARY KEY,
-					event_id 		BIGINT,
-					instance 		INT,
-					channel 		INT,
+					message_id 		DECIMAL(19) NOT NULL PRIMARY KEY,
+					event_id 		DECIMAL(19),
+					instance 		DECIMAL(2),
+					channel 		DECIMAL(2),
 					own_type 		VARCHAR(1),
 					msg_type 		VARCHAR(1),
 					content 		VARCHAR(2000),
 					recipient_id	VARCHAR(50),
 					registration_id VARCHAR(255),
 					sender_id 		VARCHAR(50),
-					req_send_time	DATE,
+					req_send_time	TIMESTAMP,
 					status 			VARCHAR(1),
-					is_sent 		BOOLEAN,
-					sent_time 		DATE,
-					is_read 		BOOLEAN,
-					read_time 		DATE,
+					is_sent 		DECIMAL(1),
+					sent_time 		TIMESTAMP,
+					is_read 		DECIMAL(1),
+					read_time 		TIMESTAMP,
 					error 			VARCHAR(255),
-					is_terminated	BOOLEAN,
-					created_time 	DATE,
-					modified_time 	DATE
+					is_terminated	DECIMAL(1),
+					created_time 	TIMESTAMP,
+					modified_time 	TIMESTAMP
 				)
 			""")
 			log.info "Log table ${tableName} created."

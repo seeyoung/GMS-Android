@@ -4,7 +4,7 @@ import java.util.Date;
 
 class GmsMessageCompleteBox {
 	static mapping = {
-		id generator:'sequence', params:[sequence:'SEQ_GMSMESSAGECOMPLETEBOX_ID']
+		id generator:'sequence', params:[sequence:'SQ_GMSCOMPLETEBOX_ID']
 	}
 
 	static belongsTo = [message: GmsMessage]

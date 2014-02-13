@@ -12,8 +12,8 @@ class GmsMassMessage {
 		isTerminated index: 'IDX_GMSMASSMESSAGE_2'
 	}
 
-	int instance // 서버 Instance 번호
-	int channel // 메시지 발송 채널 번호
+	byte instance // 서버 Instance 번호
+	byte channel // 메시지 발송 채널 번호
 	
 	long eventId // 메시지 발송 요청 번호(messageId의 상위 개념)
 	String ownType // 소유구분 (0:개인메시지, 1:공지메시지)

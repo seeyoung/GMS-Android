@@ -4,7 +4,7 @@ import org.grails.databinding.BindingFormat
 
 class GmsMessage {
 	static mapping = {
-		id generator:'sequence', params:[sequence:'SEQ_GMSMESSAGE_ID']
+		id generator:'sequence', params:[sequence:'SQ_GMSMESSAGE_ID']
 	}
 
 	static belongsTo = [owner: GmsUser]
