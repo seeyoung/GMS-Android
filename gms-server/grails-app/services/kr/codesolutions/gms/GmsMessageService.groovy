@@ -82,8 +82,8 @@ class GmsMessageService {
 									registrationId: gmsUserInstance.registrationId,
 									message: gmsMessageInstance).save()
 		gmsMessageInstance.addToRecipients(gmsMessageRecipientInstance)
-		new GmsMessageInBox(owner: gmsUserInstance,
-							message: gmsMessageInstance).save()
+//		new GmsMessageInBox(owner: gmsUserInstance,
+//							message: gmsMessageInstance).save()
 
 	}
 	
