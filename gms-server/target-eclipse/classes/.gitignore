@@ -1,4 +1,12 @@
-/grails
-/org
+/_popup.gsp
 /com
+/dbdoc
+/gms.properties
+/grails
+/hibernate
+/hibernate.cfg.xml
 /kr
+/messages.properties
+/org
+/quartz.properties
+/spring
