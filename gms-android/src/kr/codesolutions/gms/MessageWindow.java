@@ -81,9 +81,9 @@ public class MessageWindow extends Activity implements Button.OnClickListener {
 		
 	    AudioManager audioManager = (AudioManager) this.getSystemService(Context.AUDIO_SERVICE);
 	    audioManager.setStreamVolume (AudioManager.STREAM_MUSIC, audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC),0);	    
-		//mediaPlayer = MediaPlayer.create(this, R.raw.ambulance);
-		//mediaPlayer.setLooping(true);
-		//mediaPlayer.start();
+		mediaPlayer = MediaPlayer.create(this, R.raw.ambulance);
+		mediaPlayer.setLooping(true);
+		mediaPlayer.start();
 	}
 	
 	@Override
