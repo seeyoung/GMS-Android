@@ -80,7 +80,7 @@
         <activity
             android:name="kr.codesolutions.gms.MessageWindow"
             android:showOnLockScreen="true"
-            android:theme="@android:style/Theme.Light.NoTitleBar.Fullscreen"
+            android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
             >
         </activity>
     </application>

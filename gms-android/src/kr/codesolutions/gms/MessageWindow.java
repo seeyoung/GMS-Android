@@ -49,7 +49,7 @@ public class MessageWindow extends Activity implements Button.OnClickListener {
 		if(subject != null){
 			this.setTitle(subject);
 		}else{
-			this.setTitle(getString(R.string.GMS_MESSAGEBOX_TITLE));
+			this.setTitle(getString(R.string.GMS_MESSAGEWINDOW_TITLE));
 		}
 		messageId = intent.getStringExtra(GCMConstants.GMS_MESSAGE_ID);
 		ownType = intent.getStringExtra(GCMConstants.GMS_MESSAGE_OWNTYPE); // '0':개인메시지, '1':공지메시지
