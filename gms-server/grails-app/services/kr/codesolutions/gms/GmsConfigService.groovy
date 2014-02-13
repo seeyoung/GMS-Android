@@ -96,8 +96,8 @@ class GmsConfigService {
 //			new GmsMassMessageRequest(trSenddate: new Date(), 
 //						recipientId: 'max3', trMsg: 'Test3').save()
 //		}
-//		new GmsMassMessageRequest(trSenddate: new Date(), 
-//			recipientId: 'max', trMsgtype: '1', trMsg: 'Test for callback').save()
+		new GmsMassMessageRequest(trSenddate: new Date(), 
+			recipientId: 'max', trMsgtype: '1', trMsg: 'Test for callback').save()
 
 		cleanUpGorm()
 	}
