@@ -1,29 +1,33 @@
 package kr.codesolutions.gms
 
+import kr.codesolutions.gms.constants.InstanceLock
+
 import org.quartz.JobExecutionContext
 
 class PublishJob {
 	static triggers = {}
 	def concurrent = false
 	def gmsMessageService
+	def gmsInstanceLockService
 	def group = 'GMS_MESSAGE'
 	
 	def execute(JobExecutionContext context) {
 		def d = new Date().format('yyyyMMddHHmmssSSS')
-		def instance = context.mergedJobDataMap.get('instance')
+		def instanceId = context.mergedJobDataMap.get('instance')
 		def channelRange = context.mergedJobDataMap.get('channelRange')
 		def queueSize = context.mergedJobDataMap.get('queueSize')
 		def transactionSize = context.mergedJobDataMap.get('transactionSize')
 
-		if(instance == 1){
-			log.info "<START> Publish message job(${d})"
+		log.info "<START> Publish message job(${d})"
+		if(gmsInstanceLockService.lock(InstanceLock.PUBLISH, instanceId)){
 			try{
-				gmsMessageService.publish(instance, queueSize, transactionSize)
+				gmsMessageService.publish(instanceId, queueSize, transactionSize)
 			}catch(Exception ex){
 				log.error ex
 			}
-			log.info "<END> Publish message job(${d})"
+			gmsInstanceLockService.unlock(InstanceLock.PUBLISH, instanceId)
 		}
+		log.info "<END> Publish message job(${d})"
 			
 	}
 }

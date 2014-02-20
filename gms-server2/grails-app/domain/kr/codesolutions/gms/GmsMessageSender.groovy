@@ -4,6 +4,7 @@ import java.util.Date;
 
 class GmsMessageSender {
 	static mapping = {
+		version false
 		id generator:'sequence', params:[sequence:'SQ_GMSSENDER_ID']
 	}
 

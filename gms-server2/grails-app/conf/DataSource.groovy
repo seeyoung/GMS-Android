@@ -21,7 +21,7 @@ environments {
         dataSource {
 			dbCreate = "create-drop" // one of 'create', 'create-drop', 'update', 'validate', ''
 //          url = "jdbc:h2:mem:devDb;MVCC=TRUE;LOCK_TIMEOUT=10000;DB_CLOSE_ON_EXIT=FALSE;MODE=Oracle"
-			url = "jdbc:hsqldb:mem:devDb;sql.syntax_ora=true"
+			url = "jdbc:hsqldb:hsql://localhost/gmsdb;sql.syntax_ora=true"
 //			logSql = true
 //			formatSql = true
 //			dbCreate = "update"

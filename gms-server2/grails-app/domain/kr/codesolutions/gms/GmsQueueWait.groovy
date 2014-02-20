@@ -5,6 +5,7 @@ import kr.codesolutions.gms.constants.MessageStatus
 
 class GmsQueueWait {
 	static mapping = {
+		version false
 		id  generator:'sequence', params:[sequence:'SQ_GMSQUEUEWAIT_ID']
 	}
 	
@@ -23,6 +24,9 @@ class GmsQueueWait {
 	}
 	
 	def beforeInsert() {
+		if(message.status != MessageStatus.WAITING){
+			message.status = MessageStatus.WAITING
+		}
 	}
 	
 	def beforeUpdate() {

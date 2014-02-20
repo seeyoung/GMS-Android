@@ -4,6 +4,7 @@ import kr.codesolutions.gms.constants.MessageStatus
 
 class GmsBoxComplete {
 	static mapping = {
+		version false
 		id generator:'sequence', params:[sequence:'SQ_GMSCOMPLETEBOX_ID']
 	}
 

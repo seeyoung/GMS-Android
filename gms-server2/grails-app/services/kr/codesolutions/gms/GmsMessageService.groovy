@@ -399,18 +399,19 @@ class GmsMessageService {
 	def draft(GmsMessage message){
 		def instance = Eval.me(grailsApplication.config.gms.instance)
 		def gmsInstance = GmsInstance.get(instance)
-		def result = GmsUser.createCriteria().get{
-			projections {
-				min('id')
-				max('id')
-				rowCount()
-			}
-			sqlRestriction(message.recipientFilter)
-		}
-		message.recipientCount = result[2]
+		//def (offset, end, recipientCount) = [0, 0, 0]
+		def (offset, end, recipientCount) = GmsUser.createCriteria().get{
+												projections {
+													min('id')
+													max('id')
+													rowCount()
+												}
+												sqlRestriction(message.recipientFilter)
+											}
+		message.recipientCount = recipientCount
 		// 메시지 수신자의 수가 queueSize(1채널이 1회에 보낼수 있는 최대 메시지 수)보다 크면 대량메시지로 설정
 		if(message.recipientCount > gmsInstance.queueSize) message.messageType = MessageType.MASS 
-		new GmsQueueDraft(message: message, offset: result[0], end: result[1], recipientCount: message.recipientCount).save()
+		new GmsQueueDraft(message: message, offset: offset?:0, end: end?:0, recipientCount: recipientCount).save()
 	}
 	
 	/**
@@ -421,12 +422,8 @@ class GmsMessageService {
 	 * @param instance GMS Instance번호
 	 * @param queueSize 메시지 할당크기
 	 * @param transactionSize 처리단위
-	 * @return
 	 */
 	def distribute(int instanceId, int queueSize, int transactionSize){
-		def gmsInstanceLock = gmsInstanceLockService.lock(InstanceLock.DISTRIBUTE)
-		if(gmsInstanceLock == null) return
-
 		def queues = GmsQueueDraft.where{message.reservationTime <= new Date()}.list(max:queueSize, sort:'id', order:'asc')
 		queues.each{ queue ->
 			def message = queue.message
@@ -465,16 +462,9 @@ class GmsMessageService {
 					}
 				}
 			}
-		}
-		log.info "Distributed (Instance: #${instanceId}): ${queues.size()} drafts"
-		queues.each{ queue ->
-			if(queue.message.status != MessageStatus.PUBLISHING){
-				queue.message.status = MessageStatus.PUBLISHING
-			}
 			queue.delete()
 		}
-		
-		gmsInstanceLockService.unlock(gmsInstanceLock)
+		log.info "Distributed (Instance: #${instanceId}): ${queues.size()} drafts"
 	}
 	
 	/**
@@ -521,13 +511,8 @@ class GmsMessageService {
 				if(index % 100 == 0) cleanUpGorm()
 			}
 			new GmsQueueWait(message: message, offset: offset, end: end, recipientCount: users.size()).save() // 발송대기 큐로 이동
-			log.info "Published (Instance: #${instanceId}): (Message: #${message.id}) ${users.size()} recipients"
-		}
-		queues.each{ queue ->
-			if(queue.message.status != MessageStatus.WAITING){
-				queue.message.status = MessageStatus.WAITING
-			}
 			queue.delete()
+			log.info "Published (Instance: #${instanceId}): (Message: #${message.id}) ${users.size()} recipients"
 		}
 	}
 	
@@ -541,18 +526,12 @@ class GmsMessageService {
 	 * @param queueSize 채널의 QUEUE크기로 할당할 메시지 갯수
 	 * @param transactionSize 처리단위
 	 */
-	
 	def collect(int instanceId, Range channels, int queueSize, int transactionSize){
-		def gmsInstanceLock = gmsInstanceLockService.lock(InstanceLock.COLLECT)
-		if(gmsInstanceLock == null) return
-		
 		def queues = GmsQueueWait.where{instance == 0 && message.messageType == MessageType.NORMAL}.list(max:queueSize, sort:'id', order:'asc')
 		queues += GmsQueueWait.where{instance == 0 && message.messageType == MessageType.MASS}.list(max:1, sort:'id', order:'asc')
 		queues.each { queue -> queue.instance = instanceId }
 		GmsQueueWait.saveAll(queues)
 		log.info "Collected (Instance: #${instanceId}): ${queues.size()} waiting queues"
-		
-		gmsInstanceLockService.unlock(gmsInstanceLock)
 	}
 	
 	/**
@@ -563,7 +542,6 @@ class GmsMessageService {
 	 * @param instanceId 서버 Instance번호
 	 * @param channels 할당할 채널 Range
 	 * @param queueSize 채널의 QUEUE크기로 할당할 메시지 갯수
-	 * @return
 	 */
 	def post(int instanceId, Range channels, int queueSize){
 		def queues = GmsQueueWait.where{instance == instanceId}.list(max:channels.size(), sort:'id', order:'asc')
@@ -579,13 +557,8 @@ class GmsMessageService {
 				new GmsQueueSend(instance: instanceId, channel: channelId, message: message, recipient: recipient).save()
 				if(idx % 100 == 0) cleanUpGorm()
 			}
-			log.info "Posted (Intance: #${instanceId}, Channel: #${channelId}): ${recipients.size()} messages"
-		}
-		queues.each{ queue ->
-			if(queue.message.status != MessageStatus.SENDING){
-				queue.message.status = MessageStatus.SENDING
-			}
 			queue.delete()
+			log.info "Posted (Intance: #${instanceId}, Channel: #${channelId}): ${recipients.size()} messages"
 		}
 	}
 	
@@ -595,16 +568,22 @@ class GmsMessageService {
 	 * @param instanceId 서버 Instance번호
 	 * @param channelId 메시지 발송 채널
 	 * @param queueSize 채널의 QUEUE크기
-	 * @return
 	 */
 	def send(int instanceId, int channelId, int queueSize){
 		def queues = GmsQueueSend.where{instance == instanceId && channel == channelId}.list(max:queueSize, sort:'id', order:'asc')
 		queues.each { queue ->
 			try{
-				sendGCM(queue.message)
+				Environment.executeForCurrentEnvironment {
+					production {
+						sendGCM(queue.recipient)
+					}
+					development {
+						sendTest(queue.recipient)
+					}
+				}
 				queue.delete()
 			}catch(Exception ex){
-				queue.message.error = ex.message
+				queue.recipient.error = ex.message
 				log.error ex.message
 			}
 		}
@@ -616,12 +595,8 @@ class GmsMessageService {
 	 * @param instance 서버 Instance번호
 	 * @param transactionSize 처리단위(channelRange.size()*queueSize)
 	 * @param terminatePreserveDays 보존기간
-	 * @return
 	 */
-	def terminate(int instance, int transactionSize, int terminatePreserveDays) {
-		def gmsInstanceLock = gmsInstanceLockService.lock(InstanceLock.TERMINATE)
-		if(gmsInstanceLock == null) return
-		
+	def terminate(int instanceId, int transactionSize, int terminatePreserveDays) {
 		def terminateDate = use(TimeCategory) { new Date() - 30.seconds}
 		def gmsMessageTable = "GMS_MESSAGE_LOG_${terminateDate.format('yyyyMM')}"
 		def gmsMessageRecipientTable = "GMS_MESSAGE_RECIPIENT_LOG_${terminateDate.format('yyyyMM')}"
@@ -636,7 +611,7 @@ class GmsMessageService {
 			moved = sql.executeUpdate("INSERT INTO ${Sql.expand(gmsMessageTable)} SELECT * FROM gms_message WHERE is_terminated = 1")
 			deleted =  criteria.deleteAll()
 		}
-		log.info "Terminated (Intance: #${instance}, terminatePreserveDays: ${terminatePreserveDays}): ${terminated} messages terminated, ${moved} moved to Log, ${deleted} deleted"
+		log.info "Terminated (Intance: #${instanceId}, terminatePreserveDays: ${terminatePreserveDays}): ${terminated} messages terminated, ${moved} moved to Log, ${deleted} deleted"
 		
 		def criteria2 = GmsMessageRecipient.where{ sentTime != null && sentTime <= terminateDate && isTerminated == false }
 		terminated = criteria2.updateAll(isTerminated: true)
@@ -644,82 +619,103 @@ class GmsMessageService {
 			moved = sql.executeUpdate("INSERT INTO ${Sql.expand(gmsMessageRecipientTable)} SELECT * FROM gms_message_recipient WHERE is_terminated = 1")
 			deleted =  criteria2.deleteAll()
 		}
-		log.info "Terminated (Intance: #${instance}, terminatePreserveDays: ${terminatePreserveDays}): ${terminated} recipients terminated, ${moved} moved to Log, ${deleted} deleted"
-		
-		gmsInstanceLockService.unlock(gmsInstanceLock)
+		log.info "Terminated (Intance: #${instanceId}, terminatePreserveDays: ${terminatePreserveDays}): ${terminated} recipients terminated, ${moved} moved to Log, ${deleted} deleted"
 	}
 	
+	/**
+	 * 
+	 * @param sql
+	 * @param gmsMessageTable
+	 * @param gmsMessageRecipientTable
+	 */
 	def createLogTableIfNotExist(Sql sql, String gmsMessageTable, String gmsMessageRecipientTable){
 		try{
-			int count = sql.firstRow("SELECT COUNT(1) AS rowcount FROM ${Sql.expand(gmsMessageTable)} WHERE ROWNUM=1").rowcount
+			sql.firstRow("SELECT COUNT(1) FROM ${Sql.expand(gmsMessageTable)} WHERE 1=0")
 		}catch(Exception ex){
 			Environment.executeForCurrentEnvironment {
 				production {
-					sql.execute("CREATE TABLE ${Sql.expand(gmsMessageTable)} AS (SELECT * FROM GMS_MESSAGE WHERE ROWNUM=0)")
+					sql.execute("CREATE TABLE ${Sql.expand(gmsMessageTable)} AS (SELECT * FROM GMS_MESSAGE WHERE 1=0)")
 				}
 				development {
-					sql.execute("CREATE TABLE ${Sql.expand(gmsMessageTable)} AS (SELECT * FROM GMS_MESSAGE WHERE ROWNUM=0) WITH NO DATA")
+					sql.execute("CREATE TABLE ${Sql.expand(gmsMessageTable)} AS (SELECT * FROM GMS_MESSAGE WHERE 1=0) WITH NO DATA")
 				}
 			}
 			log.info "Table ${gmsMessageTable} created."
 		}
 		try{
-			int count = sql.firstRow("SELECT COUNT(1) AS rowcount FROM ${Sql.expand(gmsMessageRecipientTable)} WHERE ROWNUM=1").rowcount
+			sql.firstRow("SELECT COUNT(1) FROM ${Sql.expand(gmsMessageRecipientTable)} WHERE 1=0")
 		}catch(Exception ex){
 			Environment.executeForCurrentEnvironment {
 				production {
-					sql.execute("CREATE TABLE ${Sql.expand(gmsMessageRecipientTable)} AS (SELECT * FROM GMS_MESSAGE_RECIPIENT WHERE ROWNUM=0)")
+					sql.execute("CREATE TABLE ${Sql.expand(gmsMessageRecipientTable)} AS (SELECT * FROM GMS_MESSAGE_RECIPIENT WHERE 1=0)")
 				}
 				development {
-					sql.execute("CREATE TABLE ${Sql.expand(gmsMessageRecipientTable)} AS (SELECT * FROM GMS_MESSAGE_RECIPIENT WHERE ROWNUM=0) WITH NO DATA")
+					sql.execute("CREATE TABLE ${Sql.expand(gmsMessageRecipientTable)} AS (SELECT * FROM GMS_MESSAGE_RECIPIENT WHERE 1=0) WITH NO DATA")
 				}
 			}
 			log.info "Table ${gmsMessageRecipientTable} created."
 		}
 	}
 
-	// GCM메시지를 수신자 1명에게 전송
-	def sendGCM(GmsMassMessage gmsMassMessageInstance) {
+	/**
+	 * GCM메시지를 수신자 1명에게 전송
+	 * @param message
+	 */
+	def sendGCM(GmsMessageRecipient message) {
 		if(gcmSender == null){
 			gcmSender = new Sender(grailsApplication.config.gms.gcmApiKey)
 		}
 		// registrationId가 null이면 사용자정보에서 userId를 찾지 못한 경우임
-		if(gmsMassMessageInstance.registrationId == null){
-			gmsMassMessageInstance.error = 'Invalid userId'
-			gmsMassMessageInstance.status = '9'
+		if(message.registrationId == null){
+			message.isFailed = true
+			message.error = 'Invalid userId'
 		}else{
 			Message gcmMessage = new Message.Builder()
 					.collapseKey('GMS')
-					.addData('GMS.id', gmsMassMessageInstance.id.toString())
-					.addData('GMS.ownType', gmsMassMessageInstance.ownType)
-					.addData('GMS.msgType', gmsMassMessageInstance.msgType)
-					.addData('GMS.content', URLEncoder.encode(gmsMassMessageInstance.content, 'UTF-8') )
-					.addData('GMS.senderId', gmsMassMessageInstance.senderId)
+					.addData('GMS.id', message.id.toString())
+					.addData('GMS.ownType', message.ownType)
+					.addData('GMS.msgType', message.msgType)
+					.addData('GMS.content', URLEncoder.encode(message.content, 'UTF-8') )
+					.addData('GMS.senderId', message.senderId)
 					.build()
 			//log.debug 'GCM message: ' + gcmMessage.toString()
 	
-			Result result = gcmSender.send(gcmMessage, gmsMassMessageInstance.registrationId, 3)
-			//log.debug 'Result :' + gmsMassMessageInstance.userId + ',' + result.messageId
+			Result result = gcmSender.send(gcmMessage, message.registrationId, 3)
+			//log.debug 'Result :' + message.userId + ',' + result.messageId
 			if(result.messageId){
-				gmsMassMessageInstance.isSent = true
-				gmsMassMessageInstance.status = '1'
+				message.isSent = true
 			}else{
-				gmsMassMessageInstance.error = result.errorCode
-				gmsMassMessageInstance.status = '9'
+				message.isFailed = true
+				message.error = result.errorCode
 			}
 		}
-		gmsMassMessageInstance.sentTime = new Date()
-		gmsMassMessageInstance.save()
+		message.save()
 	}
 
-
-	def GmsMassMessage read(GmsMassMessage gmsMassMessageInstance){
-		if(!gmsMassMessageInstance.isRead){
-			gmsMassMessageInstance.isRead = true
-			gmsMassMessageInstance.status = '2'
-			gmsMassMessageInstance.save flush:true
+	/**
+	 * 메시지 전송 테스트	
+	 * @param message
+	 */
+	def sendTest(GmsMessageRecipient message) {
+		// registrationId가 null이면 사용자정보에서 userId를 찾지 못한 경우임
+		if(message.registrationId == null){
+			message.isFailed = true
+			message.error = 'Invalid userId'
+		}else{
+			message.isSent = true
 		}
-		return gmsMassMessageInstance
+		message.save()
+	}
+
+	/**
+	 * 메시지 읽음 처리
+	 * @param message
+	 */
+	def GmsMessage read(GmsMessage message){
+		if(!message.isRead){
+			message.isRead = true
+		}
+		return message
 	}
 	
 

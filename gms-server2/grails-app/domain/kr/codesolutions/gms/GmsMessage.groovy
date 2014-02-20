@@ -9,7 +9,8 @@ import org.grails.databinding.BindingFormat
 
 class GmsMessage {
 	static mapping = {
-		id generator:'sequence', params:[sequence:'SQ_GMSMESSAGE_ID']
+		version false
+		//id generator:'sequence', params:[sequence:'SQ_GMSMESSAGE_ID']
 	}
 
 	String subject
@@ -25,6 +26,7 @@ class GmsMessage {
 	GmsMessageSender sender
 	String recipientFilter
 	int recipientCount = 0
+	int sentCount = 0
 	
 	Date draftTime = new Date()
 	Date publishTime

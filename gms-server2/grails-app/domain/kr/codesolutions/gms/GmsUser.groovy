@@ -4,6 +4,7 @@ import java.util.Date;
 
 class GmsUser {
 	static mapping = {
+		version false
 		id generator:'sequence', params:[sequence:'SQ_GMSUSER_ID']
 		name index: 'IDX_GMSUSER_0'
 		phoneNumber index: 'IDX_GMSUSER_0'

@@ -5,6 +5,7 @@ import kr.codesolutions.gms.constants.MessageStatus
 
 class GmsQueuePublish {
 	static mapping = {
+		version false
 		id  generator:'sequence', params:[sequence:'SQ_GMSQUEUEPUBLISH_ID']
 	}
 	
@@ -23,6 +24,9 @@ class GmsQueuePublish {
 	}
 	
 	def beforeInsert() {
+		if(message.status != MessageStatus.PUBLISHING){
+			message.status = MessageStatus.PUBLISHING
+		}
 	}
 	
 	def beforeUpdate() {

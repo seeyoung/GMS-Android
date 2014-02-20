@@ -3,24 +3,43 @@ package kr.codesolutions.gms
 import grails.transaction.Transactional
 import kr.codesolutions.gms.constants.InstanceLock
 
-@Transactional
+import org.springframework.transaction.annotation.Propagation
+
+@Transactional 
 class GmsInstanceLockService {
-	def lock(InstanceLock lock){
-		GmsInstanceLock gmsInstanceLock
+	
+	@Transactional(propagation=Propagation.REQUIRES_NEW) 
+	def boolean lock(InstanceLock lock, int instanceId){
 		try{
-			gmsInstanceLock = GmsInstanceLock.lock(lock.value)
-			if(gmsInstanceLock.isLocked) return null
-			gmsInstanceLock.isLocked = true
-			gmsInstanceLock.save(flush:true)
+			def gmsInstanceLock = GmsInstanceLock.get(lock.value)
+			if(!gmsInstanceLock.locked){
+				gmsInstanceLock.instance = instanceId
+				gmsInstanceLock.save(flush:true)
+				return true
+			}
+			log.error lock.value + " is locked by Instance #${gmsInstanceLock.instance}(Lock)."
 		}catch(ex){
 			log.error ex.message
-			return null
 		}
-		return gmsInstanceLock
+		return false
 	}
 	
-	def unlock(GmsInstanceLock gmsInstanceLock){
-		gmsInstanceLock.isLocked = false
-		gmsInstanceLock.save(flush:true)
+	@Transactional(propagation=Propagation.REQUIRES_NEW) 
+	def boolean unlock(InstanceLock lock, int instanceId){
+		
+		try{
+			def gmsInstanceLock = GmsInstanceLock.get(lock.value)
+			if(gmsInstanceLock.locked){
+				if(gmsInstanceLock.instance == instanceId){
+					gmsInstanceLock.instance = 0
+					gmsInstanceLock.save(flush:true)
+					return true
+				}
+				log.error lock.value + " is locked by Instance #${gmsInstanceLock.instance}(Unlock)."
+			}
+		}catch(ex){
+			log.error ex.message
+		}
+		return false
 	}
 }

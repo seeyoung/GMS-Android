@@ -5,6 +5,7 @@ import kr.codesolutions.*
 
 class GmsInstance {
 	static mapping = {
+		version false
 		id column: 'instanceId'
 	}
 	
@@ -28,6 +29,8 @@ class GmsInstance {
 	Date createdTime = new Date()
 	Date modifiedTime = new Date()
 
+	static transients = ['channelRange','transactionSize']
+
 	static constraints = {
 		instanceId range: 1..99
 		channels maxSize: 10 
@@ -41,10 +44,6 @@ class GmsInstance {
 		preserveDays range: 1..120
 		resendPendingSeconds range: 1..120
 	}
-	
-	static transients = ['channelRange','transactionSize']
-	
-	
 	
 	def beforeInsert() {
 	}

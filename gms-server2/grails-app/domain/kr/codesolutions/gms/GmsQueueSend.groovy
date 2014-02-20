@@ -5,6 +5,7 @@ import kr.codesolutions.gms.constants.MessageStatus
 
 class GmsQueueSend {
 	static mapping = {
+		version false
 		id  generator:'sequence', params:[sequence:'SQ_GMSQUEUE_ID']
 		channel index: 'IDX_GMSQUEUESENDING_1'
 	}
@@ -22,6 +23,9 @@ class GmsQueueSend {
 	}
 	
 	def beforeInsert() {
+		if(message.status != MessageStatus.SENDING){
+			message.status = MessageStatus.SENDING
+		}
 		recipient.status = MessageStatus.SENDING
 	}
 	

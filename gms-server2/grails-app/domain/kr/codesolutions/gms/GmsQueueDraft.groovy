@@ -5,6 +5,7 @@ import kr.codesolutions.gms.constants.MessageStatus
 
 class GmsQueueDraft {
 	static mapping = {
+		version false
 		id  generator:'sequence', params:[sequence:'SQ_GMSQUEUEDRAFT_ID']
 	}
 	
