@@ -24,7 +24,6 @@ class GmsMessageService {
 	def grailsApplication
 	def dataSource
 	SessionFactory sessionFactory
-	Transaction transaction
 	def propertyInstanceMap = org.codehaus.groovy.grails.plugins.DomainClassGrailsPlugin.PROPERTY_INSTANCE_MAP
 	Sender gcmSender
 	def gmsInstanceLockService
@@ -399,7 +398,6 @@ class GmsMessageService {
 	def draft(GmsMessage message){
 		def instance = Eval.me(grailsApplication.config.gms.instance)
 		def gmsInstance = GmsInstance.get(instance)
-		//def (offset, end, recipientCount) = [0, 0, 0]
 		def (offset, end, recipientCount) = GmsUser.createCriteria().get{
 												projections {
 													min('id')
@@ -410,7 +408,7 @@ class GmsMessageService {
 											}
 		message.recipientCount = recipientCount
 		// 메시지 수신자의 수가 queueSize(1채널이 1회에 보낼수 있는 최대 메시지 수)보다 크면 대량메시지로 설정
-		if(message.recipientCount > gmsInstance.queueSize) message.messageType = MessageType.MASS 
+		if(message.recipientCount >= gmsInstance.queueSize) message.messageType = MessageType.MASS 
 		new GmsQueueDraft(message: message, offset: offset?:0, end: end?:0, recipientCount: recipientCount).save()
 	}
 	
@@ -420,19 +418,19 @@ class GmsMessageService {
 	 * 대량메시지는 Publish에 많은 시간이 소요되므로 모든 Instance에 본배한다.
 	 * 
 	 * @param instance GMS Instance번호
+	 * @param channels 할당할 채널 Range
 	 * @param queueSize 메시지 할당크기
-	 * @param transactionSize 처리단위
 	 */
-	def distribute(int instanceId, int queueSize, int transactionSize){
+	def distribute(int instanceId, Range channels, int queueSize){
 		def queues = GmsQueueDraft.where{message.reservationTime <= new Date()}.list(max:queueSize, sort:'id', order:'asc')
 		queues.each{ queue ->
 			def message = queue.message
 			def prevQueue = new GmsQueuePublish(instance: instanceId, message: message, offset: queue.offset, end: queue.end, recipientCount: queue.recipientCount).save()
 			// 대량메시지는 Publish에 많은 시간이 소요되므로 모든 Instance에 본배한다.
-			if(queue.recipientCount > transactionSize){
+			if(queue.recipientCount > queueSize){
 				def instances = GmsInstance.where{isRunning == true}.list(sort:'id', order:'asc')
 				int offset = queue.offset
-				0.step(queue.recipientCount, transactionSize*instances.size()-1) { step ->
+				0.step(queue.recipientCount, queueSize*instances.size()-1) { step ->
 					boolean hasNext = true
 					instances.eachWithIndex { gmsInstance, index ->
 						if(hasNext){
@@ -441,10 +439,10 @@ class GmsMessageService {
 									property('id','id')
 								}
 								sqlRestriction(message.recipientFilter + " AND id > ${offset}")
-								maxResults(transactionSize)
+								maxResults(queueSize)
 								order('id', 'asc')
 							}
-							if(results.size() < transactionSize){
+							if(results.size() < queueSize){
 								prevQueue.recipientCount = results.size() + 1
 								if(results.size() > 0){
 									prevQueue.end = results.last()
@@ -472,17 +470,17 @@ class GmsMessageService {
 	 * 1회에 transactionSize개수만큼의 Recipient만 처리한다.
 	 *
 	 * @param instanceId 서버 Instance번호
+	 * @param channels 할당할 채널 Range
 	 * @param queueSize 메시지 할당크기
-	 * @param transactionSize 처리단위
 	 */
-	def publish(int instanceId, int queueSize, int transactionSize){
+	def publish(int instanceId, Range channels, int queueSize){
 		def queues = GmsQueuePublish.where{instance == instanceId && message.messageType == MessageType.NORMAL}.list(max:queueSize, offset:queueSize*(instanceId-1), sort:'id', order:'asc')
-		queues += GmsQueuePublish.where{instance == instanceId && message.messageType == MessageType.MASS}.list(max:1, sort:'id', order:'asc')
+		queues += GmsQueuePublish.where{instance == instanceId && message.messageType == MessageType.MASS}.list(max:channels.size(), sort:'id', order:'asc')
 		queues.each { queue ->
 			def message = queue.message
 			def users = GmsUser.createCriteria().list{
 				sqlRestriction(message.recipientFilter + " AND id >= ${queue.offset}")
-				maxResults(transactionSize)
+				maxResults(queueSize)
 				order('id', 'asc')
 			}
 			def (offset, end) = [0, 0]
@@ -524,11 +522,10 @@ class GmsMessageService {
 	 * @param instanceId 서버 Instance번호
 	 * @param channels 할당할 채널 Range
 	 * @param queueSize 채널의 QUEUE크기로 할당할 메시지 갯수
-	 * @param transactionSize 처리단위
 	 */
-	def collect(int instanceId, Range channels, int queueSize, int transactionSize){
+	def collect(int instanceId, Range channels, int queueSize){
 		def queues = GmsQueueWait.where{instance == 0 && message.messageType == MessageType.NORMAL}.list(max:queueSize, sort:'id', order:'asc')
-		queues += GmsQueueWait.where{instance == 0 && message.messageType == MessageType.MASS}.list(max:1, sort:'id', order:'asc')
+		queues += GmsQueueWait.where{instance == 0 && message.messageType == MessageType.MASS}.list(max:channels.size(), sort:'id', order:'asc')
 		queues.each { queue -> queue.instance = instanceId }
 		GmsQueueWait.saveAll(queues)
 		log.info "Collected (Instance: #${instanceId}): ${queues.size()} waiting queues"
@@ -544,9 +541,9 @@ class GmsMessageService {
 	 * @param queueSize 채널의 QUEUE크기로 할당할 메시지 갯수
 	 */
 	def post(int instanceId, Range channels, int queueSize){
-		def queues = GmsQueueWait.where{instance == instanceId}.list(max:channels.size(), sort:'id', order:'asc')
+		def queues = GmsQueueWait.where{instance == instanceId && message.messageType == MessageType.NORMAL}.list(max:queueSize, sort:'id', order:'asc')
+		queues += GmsQueueWait.where{instance == instanceId && message.messageType == MessageType.MASS}.list(max:channels.size(), sort:'id', order:'asc')
 		queues.eachWithIndex { queue, index ->
-			def message = queue.message
 			def channelId = channels.get(index%channels.size())
 			def recipients = GmsMessageRecipient.where{
 								message == queue.message && 
@@ -554,7 +551,7 @@ class GmsMessageService {
 							}.list(sort:'id', order:'asc')
 							
 			recipients.eachWithIndex{ recipient, idx ->
-				new GmsQueueSend(instance: instanceId, channel: channelId, message: message, recipient: recipient).save()
+				new GmsQueueSend(instance: instanceId, channel: channelId, message: queue.message, recipient: recipient).save()
 				if(idx % 100 == 0) cleanUpGorm()
 			}
 			queue.delete()
@@ -593,11 +590,19 @@ class GmsMessageService {
 	/**
 	 * 보존기간이 종료된 메시지를 월별 Log 테이블로 이동한다.
 	 * @param instance 서버 Instance번호
-	 * @param transactionSize 처리단위(channelRange.size()*queueSize)
 	 * @param terminatePreserveDays 보존기간
 	 */
-	def terminate(int instanceId, int transactionSize, int terminatePreserveDays) {
-		def terminateDate = use(TimeCategory) { new Date() - 30.seconds}
+	def terminate(int instanceId, int terminatePreserveDays) {
+		def terminateDate = use(TimeCategory) { 
+				Environment.executeForCurrentEnvironment {
+					production {
+						new Date() - terminatePreserveDays.days
+					}
+					development {
+						new Date() - 30.seconds
+					}
+				}
+			}
 		def gmsMessageTable = "GMS_MESSAGE_LOG_${terminateDate.format('yyyyMM')}"
 		def gmsMessageRecipientTable = "GMS_MESSAGE_RECIPIENT_LOG_${terminateDate.format('yyyyMM')}"
 		def sql = new Sql(sessionFactory.currentSession.connection())
@@ -605,20 +610,16 @@ class GmsMessageService {
 		createLogTableIfNotExist(sql, gmsMessageTable, gmsMessageRecipientTable)
 		
 		def (terminated, moved, deleted) = [0, 0, 0]
-		def criteria = GmsMessage.where{ sentTime != null && sentTime <= terminateDate && isTerminated == false }
-		terminated = criteria.updateAll(isTerminated: true)
-		if(terminated > 0){
-			moved = sql.executeUpdate("INSERT INTO ${Sql.expand(gmsMessageTable)} SELECT * FROM gms_message WHERE is_terminated = 1")
-			deleted =  criteria.deleteAll()
-		}
+		def criteria = GmsMessage.where{ completedTime <= terminateDate && isTerminated == false }
+		terminated = criteria.updateAll(isTerminated: true, terminatedTime: new Date(), status: MessageStatus.TERMINATED)
+		moved = sql.executeUpdate("INSERT INTO ${Sql.expand(gmsMessageTable)} SELECT * FROM gms_message WHERE is_terminated = 1")
+		deleted =  criteria.deleteAll()
 		log.info "Terminated (Intance: #${instanceId}, terminatePreserveDays: ${terminatePreserveDays}): ${terminated} messages terminated, ${moved} moved to Log, ${deleted} deleted"
 		
-		def criteria2 = GmsMessageRecipient.where{ sentTime != null && sentTime <= terminateDate && isTerminated == false }
-		terminated = criteria2.updateAll(isTerminated: true)
-		if(terminated > 0){
-			moved = sql.executeUpdate("INSERT INTO ${Sql.expand(gmsMessageRecipientTable)} SELECT * FROM gms_message_recipient WHERE is_terminated = 1")
-			deleted =  criteria2.deleteAll()
-		}
+		def criteria2 = GmsMessageRecipient.where{ completedTime <= terminateDate && isTerminated == false }
+		terminated = criteria2.updateAll(isTerminated: true, terminatedTime: new Date(), status: MessageStatus.TERMINATED)
+		moved = sql.executeUpdate("INSERT INTO ${Sql.expand(gmsMessageRecipientTable)} SELECT * FROM gms_message_recipient WHERE is_terminated = 1")
+		deleted =  criteria2.deleteAll()
 		log.info "Terminated (Intance: #${instanceId}, terminatePreserveDays: ${terminatePreserveDays}): ${terminated} recipients terminated, ${moved} moved to Log, ${deleted} deleted"
 	}
 	

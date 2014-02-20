@@ -16,12 +16,11 @@ class DistributeJob {
 		def instanceId = context.mergedJobDataMap.get('instance')
 		def channelRange = context.mergedJobDataMap.get('channelRange')
 		def queueSize = context.mergedJobDataMap.get('queueSize')
-		def transactionSize = context.mergedJobDataMap.get('transactionSize')
 		
 		log.info "<START> Distribute message job (${d})"
 		if(gmsInstanceLockService.lock(InstanceLock.DISTRIBUTE, instanceId)){
 			try{
-				gmsMessageService.distribute(instanceId, queueSize, transactionSize)
+				gmsMessageService.distribute(instanceId, channelRange, queueSize)
 			}catch(Exception ex){
 				log.error ex.message
 			}

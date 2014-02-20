@@ -64,17 +64,17 @@ class GmsConfigService {
 					//filter: '*',
 					owner: m).save()
 						
-//			10013.times{
-//				new GmsUser(
-//					userId: "ddong${it}",
-//					name: "개똥${it}호",
-//					phoneNumber: "tel${it}",
-//					registrationId: "reg${it}",
-//					email: "youngeun_ryu${it}@naver.com",
-//					enabled: true
-//				).save()
-//				if(it % 100 == 0) cleanUpGorm()
-//			}
+			10013.times{
+				new GmsUser(
+					userId: "ddong${it}",
+					name: "개똥${it}호",
+					phoneNumber: "tel${it}",
+					registrationId: "reg${it}",
+					email: "youngeun_ryu${it}@naver.com",
+					enabled: true
+				).save()
+				if(it % 100 == 0) cleanUpGorm()
+			}
 
 		}
 	
@@ -120,39 +120,39 @@ class GmsConfigService {
 		def gmsInstance = GmsInstance.get(instance)
 		
 		if(gmsInstance.autoStart){
-//			// 메시지 Instance분배 작업
-//			DistributeJob.schedule(gmsInstance.distributeIntervalSeconds*1000, -1, [instance: instance, channelRange: gmsInstance.channelRange, queueSize: gmsInstance.queueSize, transactionSize: gmsInstance.transactionSize])
-//			log.info "<STARTED> Distribute Message job"
-//			Thread.sleep(3000)
-//			
-//			// 메시지 발행 작업
-//			PublishJob.schedule(gmsInstance.publishIntervalSeconds*1000, -1, [instance: instance, channelRange: gmsInstance.channelRange, queueSize: gmsInstance.queueSize, transactionSize: gmsInstance.transactionSize])
-//			log.info "<STARTED> Publish Message job"
-//			Thread.sleep(3000)
-//			
-//			// 메시지 수집 작업
-//			CollectJob.schedule(gmsInstance.collectIntervalSeconds*1000, -1, [instance: instance, channelRange: gmsInstance.channelRange, queueSize: gmsInstance.queueSize, transactionSize: gmsInstance.transactionSize])
-//			log.info "<STARTED> Collect Message job"
-//			Thread.sleep(3000)
-//			
-//			// 메시지 채널분배 작업
-//			PostJob.schedule(gmsInstance.postIntervalSeconds*1000, -1, [instance: instance, channelRange: gmsInstance.channelRange, queueSize: gmsInstance.queueSize, transactionSize: gmsInstance.transactionSize])
-//			log.info "<STARTED> Post Message job"
-//			Thread.sleep(3000)
-//			
-//			// 메시지 발송 작업 시작
-//			gmsInstance.channelRange.each{ channel ->
-//				try{
-//					def job = Class.forName("kr.codesolutions.gms.channel.Channel${channel}Job")
-//					job.schedule(gmsInstance.sendIntervalSeconds*1000, -1, [instance: instance, channelRange: gmsInstance.channelRange, queueSize: gmsInstance.queueSize, transactionSize: gmsInstance.transactionSize])
-//					log.info "<STARTED> #${channel} Channel job "
-//				}catch(Exception ex){
-//					log.error ex.message
-//				}
-//			}
-//			
+			// 메시지 Instance분배 작업
+			DistributeJob.schedule(gmsInstance.distributeIntervalSeconds*1000, -1, [instance: instance, channelRange: gmsInstance.channelRange, queueSize: gmsInstance.queueSize])
+			log.info "<STARTED> Distribute Message job"
+			Thread.sleep(3000)
+			
+			// 메시지 발행 작업
+			PublishJob.schedule(gmsInstance.publishIntervalSeconds*1000, -1, [instance: instance, channelRange: gmsInstance.channelRange, queueSize: gmsInstance.queueSize])
+			log.info "<STARTED> Publish Message job"
+			Thread.sleep(3000)
+			
+			// 메시지 수집 작업
+			CollectJob.schedule(gmsInstance.collectIntervalSeconds*1000, -1, [instance: instance, channelRange: gmsInstance.channelRange, queueSize: gmsInstance.queueSize])
+			log.info "<STARTED> Collect Message job"
+			Thread.sleep(3000)
+			
+			// 메시지 채널분배 작업
+			PostJob.schedule(gmsInstance.postIntervalSeconds*1000, -1, [instance: instance, channelRange: gmsInstance.channelRange, queueSize: gmsInstance.queueSize])
+			log.info "<STARTED> Post Message job"
+			Thread.sleep(3000)
+			
+			// 메시지 발송 작업 시작
+			gmsInstance.channelRange.each{ channel ->
+				try{
+					def job = Class.forName("kr.codesolutions.gms.channel.Channel${channel}Job")
+					job.schedule(gmsInstance.sendIntervalSeconds*1000, -1, [instance: instance, channel: channel, queueSize: gmsInstance.queueSize])
+					log.info "<STARTED> #${channel} Channel job "
+				}catch(Exception ex){
+					log.error ex.message
+				}
+			}
+			
 			// 메시지 폐기 작업
-			TerminateJob.schedule(gmsInstance.terminateIntervalSeconds*1000, -1, [instance: instance, channelRange: gmsInstance.channelRange, queueSize: gmsInstance.queueSize, transactionSize: gmsInstance.transactionSize, preserveDays: gmsInstance.preserveDays])
+			TerminateJob.schedule(gmsInstance.terminateIntervalSeconds*1000, -1, [instance: instance, channelRange: gmsInstance.channelRange, queueSize: gmsInstance.queueSize, preserveDays: gmsInstance.preserveDays])
 			log.info "<STARTED> Terminate Message job"
 			
 		}

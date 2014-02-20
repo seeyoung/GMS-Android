@@ -5,7 +5,6 @@ import kr.codesolutions.gms.constants.MessageStatus
 class GmsBoxDraft {
 	static mapping = {
 		version false
-		id generator:'sequence', params:[sequence:'SQ_GMSDRAFTBOX_ID']
 	}
 
 	static belongsTo = [owner: GmsUser, message: GmsMessage]

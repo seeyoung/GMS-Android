@@ -10,7 +10,6 @@ import org.grails.databinding.BindingFormat
 class GmsMessage {
 	static mapping = {
 		version false
-		//id generator:'sequence', params:[sequence:'SQ_GMSMESSAGE_ID']
 	}
 
 	String subject
@@ -34,8 +33,8 @@ class GmsMessage {
 	Date sendTime
 	Date sentTime
 	Date readTime
-	Date completeTime
-	Date terminateTime
+	Date completedTime
+	Date terminatedTime
 	boolean isSent = false
 	boolean isRead = false
 	boolean isTerminated = false
@@ -59,8 +58,8 @@ class GmsMessage {
 		sendTime nullable: true
 		sentTime nullable: true
 		readTime nullable: true
-		completeTime nullable: true
-		terminateTime nullable: true
+		completedTime nullable: true
+		terminatedTime nullable: true
 		error nullable: true, maxSize: 255
 	}
 	
@@ -76,8 +75,8 @@ class GmsMessage {
 				case MessageStatus.WAITING: waitTime = new Date(); break
 				case MessageStatus.SENDING: sendTime = new Date(); break
 				case MessageStatus.SENT: sentTime = new Date(); isSent = true; break
-				case MessageStatus.COMPLETED: completeTime = new Date(); break
-				case MessageStatus.TERMINATED: terminateTime = new Date(); break
+				case MessageStatus.COMPLETED: completedTime = new Date(); break
+				case MessageStatus.TERMINATED: terminatedTime = new Date(); break
 			}
 		}
 		if (isDirty('isRead') && isRead) {

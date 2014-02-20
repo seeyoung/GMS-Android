@@ -14,13 +14,12 @@ class TerminateJob {
 	def execute(JobExecutionContext context) {
 		def d = new Date().format('yyyyMMddHHmmssSSS')
 		def instanceId = context.mergedJobDataMap.get('instance')
-		def transactionSize = context.mergedJobDataMap.get('transactionSize')
 		def preserveDays = context.mergedJobDataMap.get('preserveDays')
 		
 		log.info "<START> Terminate message job(${d})"
 		if(gmsInstanceLockService.lock(InstanceLock.TERMINATE, instanceId)){
 			try{
-				gmsMessageService.terminate(instanceId, transactionSize, preserveDays)
+				gmsMessageService.terminate(instanceId, preserveDays)
 			}catch(Exception ex){
 				log.error ex
 			}

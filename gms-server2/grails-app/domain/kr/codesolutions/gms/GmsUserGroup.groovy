@@ -5,7 +5,6 @@ import java.util.Date;
 class GmsUserGroup {
 	static mapping = {
 		version false
-		id generator:'sequence', params:[sequence:'SQ_GMSUSERGROUP_ID']
 		name column: 'NAME', index: 'IDX_GMSUSERGROUP_0'
 	}
 

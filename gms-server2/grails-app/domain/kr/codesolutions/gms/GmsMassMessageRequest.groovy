@@ -4,7 +4,7 @@ package kr.codesolutions.gms
 class GmsMassMessageRequest {
 	static mapping = {
 		version false
-		id column: 'TR_NUM', generator: 'sequence', params: [sequence: 'SQ_GMSMESSAGE_ID']
+		id column: 'TR_NUM'
 		senderId defaultValue: "'gmsmaster'"
 		trSendstat defaultValue: "'0'"
 		trRsltstat defaultValue: "'00'"

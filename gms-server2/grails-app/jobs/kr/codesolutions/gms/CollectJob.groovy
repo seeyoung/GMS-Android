@@ -16,12 +16,11 @@ class CollectJob {
 		def instanceId = context.mergedJobDataMap.get('instance')
 		def channelRange = context.mergedJobDataMap.get('channelRange')
 		def queueSize = context.mergedJobDataMap.get('queueSize')
-		def transactionSize = context.mergedJobDataMap.get('transactionSize')
 
 		log.info "<START> Collect message job (${d})"
 		if(gmsInstanceLockService.lock(InstanceLock.COLLECT, instanceId)){
 			try{
-				gmsMessageService.collect(instanceId, channelRange, queueSize, transactionSize)
+				gmsMessageService.collect(instanceId, channelRange, queueSize)
 			}catch(Exception ex){
 				log.error ex.message
 			}

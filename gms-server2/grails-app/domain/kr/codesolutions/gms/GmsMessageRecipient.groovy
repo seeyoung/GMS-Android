@@ -11,7 +11,6 @@ import kr.codesolutions.gms.constants.SendType
 class GmsMessageRecipient {
 	static mapping = {
 		version false
-//		id generator:'sequence', params:[sequence:'SQ_GMSRECIPIENT_ID']
 	}
 
 	static belongsTo = [message:GmsMessage]
@@ -36,11 +35,11 @@ class GmsMessageRecipient {
 	boolean isFailed = false
 	Date failedTime
 	boolean isCompleted = false
-	Date completeTime
+	Date completedTime
 	boolean isRead = false
 	Date readTime
 	boolean isTerminated = false
-	Date terminateTime
+	Date terminatedTime
 	
 	String error
 
@@ -62,9 +61,9 @@ class GmsMessageRecipient {
 		error nullable: true, maxSize: 255
 		sentTime nullable: true
 		failedTime nullable: true
-		completeTime nullable: true
+		completedTime nullable: true
 		readTime nullable: true
-		terminateTime nullable: true
+		terminatedTime nullable: true
 	}
 	
 	def beforeInsert() {
@@ -75,21 +74,17 @@ class GmsMessageRecipient {
 		if (isDirty('isSent') && isSent) {
 			sentTime = new Date()
 			isCompleted = true
-			completeTime = new Date()
+			completedTime = new Date()
 			status = MessageStatus.COMPLETED
 		}
 		if (isDirty('isFailed') && isFailed) {
 			failedTime = new Date()
 			isCompleted = true
-			completeTime = new Date()
+			completedTime = new Date()
 			status = MessageStatus.COMPLETED
 		}
 		if (isDirty('isRead') && isRead) {
 			readTime = new Date()
-		}
-		if (isDirty('isTerminated') && isTerminated) {
-			terminateTime = new Date()
-			status = MessageStatus.TERMINATED
 		}
 	 }
 }

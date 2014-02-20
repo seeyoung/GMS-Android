@@ -23,13 +23,12 @@ class GmsInstance {
 	int terminateIntervalSeconds = 60 // 메시지 폐기처리주기(초)(예:60 -> 60초)
 	int preserveDays = 7 // 보존기간(일)(예:7 -> 발송후 7일 경과된 메시지는 삭제대상)
 	int resendPendingSeconds = 30 // 메시지 재발송 대기시간(초)(예:10 -> 10초)
-	int getTransactionSize(){  channelRange.size() *queueSize }
 	
 	
 	Date createdTime = new Date()
 	Date modifiedTime = new Date()
 
-	static transients = ['channelRange','transactionSize']
+	static transients = ['channelRange']
 
 	static constraints = {
 		instanceId range: 1..99
