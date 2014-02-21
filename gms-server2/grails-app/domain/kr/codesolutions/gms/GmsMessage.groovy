@@ -12,6 +12,7 @@ import org.grails.databinding.BindingFormat
 class GmsMessage {
 	static mapping = {
 		version false
+		id generator:'sequence', params:[sequence:'SQ_GMSMESSAGE_ID']
 		status index: 'IDX_GMSMESSAGE_1'
 		lastEventTime index: 'IDX_GMSMESSAGE_1'
 	}
@@ -103,7 +104,7 @@ class GmsMessage {
 				case MessageStatus.WAITING: waitTime = new Date(); break
 				case MessageStatus.SENDING: sendTime = new Date(); break
 				case MessageStatus.SENT: sentTime = new Date(); isSent = true; break
-				case MessageStatus.COMPLETED: completedTime = new Date(); break
+				case MessageStatus.COMPLETED: completedTime = new Date(); sender.status = status; break
 				case MessageStatus.TERMINATED: terminatedTime = new Date(); break
 			}
 		}

@@ -27,7 +27,7 @@ environments {
 //			dbCreate = "update"
 //			url = "jdbc:oracle:thin:@106.246.233.138:1521/XE"
 			properties {
-		        maxActive = 10
+		        maxActive = 20
 		        maxIdle = 1
 		        minIdle = 1
 		        initialSize = 1

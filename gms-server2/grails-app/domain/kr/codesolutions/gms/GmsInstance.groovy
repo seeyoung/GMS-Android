@@ -6,7 +6,7 @@ import kr.codesolutions.*
 class GmsInstance {
 	static mapping = {
 		version false
-		id column: 'instanceId'
+		id column: 'instanceId', generator: 'assigned'
 	}
 	
 	byte instanceId = 1 // 서버 Instance 번호

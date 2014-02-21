@@ -6,6 +6,7 @@ import kr.codesolutions.gms.constants.MessageStatus
 class GmsQueueWait {
 	static mapping = {
 		version false
+		id generator:'sequence', params:[sequence:'SQ_GMSQUEUEWAIT_ID']
 	}
 	
 	byte instance = 0 // GMS Instance 번호
@@ -23,6 +24,9 @@ class GmsQueueWait {
 	}
 	
 	def beforeInsert() {
+		if(message.status == MessageStatus.PUBLISHING){
+			message.status = MessageStatus.WAITING
+		}
 	}
 	
 	def beforeUpdate() {

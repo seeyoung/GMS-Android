@@ -21,7 +21,14 @@ class GmsConfigService {
 	}
 
 	def initData(){
-		if(GmsUser.findByUserId('gmsmaster') == null){
+		// GMS 서버 Instance 번호(1이상 순차부여)
+		def instance = Eval.me(grailsApplication.config.gms.instance)
+		def gmsInstance = GmsInstance.get(instance)
+		if(gmsInstance == null){
+			def i = new GmsInstance()
+			i.id = instance
+			i.save(flush:true)
+	
 			InstanceLock.values().each { lock ->
 				def l = new GmsInstanceLock()
 				l.id = lock
@@ -76,6 +83,7 @@ class GmsConfigService {
 				if(it % 100 == 0) cleanUpGorm()
 			}
 
+			startUpJob()
 		}
 	
 //		100.times { id ->
@@ -86,13 +94,6 @@ class GmsConfigService {
 //			new GmsMassMessageRequest(trSenddate: new Date(), 
 //						recipientId: 'max3', trMsg: 'Test3').save()
 //		}
-		// GMS 서버 Instance 번호(1이상 순차부여)
-		def instance = Eval.me(grailsApplication.config.gms.instance)
-		def gmsInstance = GmsInstance.get(instance)
-		if(gmsInstance == null){
-			new GmsInstance(id: instance).save(flush:true)
-			startUpJob()
-		}
 		
 		def s = new GmsMessageSender(
 			userId: 'gmsmaster',

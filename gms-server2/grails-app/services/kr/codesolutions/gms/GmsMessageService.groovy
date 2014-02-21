@@ -460,13 +460,10 @@ class GmsMessageService {
 					}
 				}
 			}
-		}
-		log.info "Distributed (Instance: #${instanceId}): ${queues.size()} drafts"
-		queues.each { queue ->
-			if(queue.message.status != MessageStatus.PUBLISHING){
-				queue.message.status = MessageStatus.PUBLISHING
-			}
 			queue.delete()
+		}
+		if(queues.size() > 0){
+			log.info "Distributed (Instance: #${instanceId}): ${queues.size()} drafts"
 		}
 	}
 	
@@ -514,13 +511,8 @@ class GmsMessageService {
 				if(index % 100 == 0) cleanUpGorm()
 			}
 			new GmsQueueWait(message: message, offset: offset, end: end, recipientCount: users.size()).save() // 발송대기 큐로 이동
-			log.info "Published (Instance: #${instanceId}): (Message: #${message.id}) ${users.size()} recipients"
-		}
-		queues.each { queue ->
-			if(queue.message.status != MessageStatus.WAITING){
-				queue.message.status = MessageStatus.WAITING
-			}
 			queue.delete()
+			log.info "Published (Instance: #${instanceId}): (Message: #${message.id}) ${users.size()} recipients"
 		}
 	}
 	
@@ -537,7 +529,9 @@ class GmsMessageService {
 		queues += GmsQueueWait.where{instance == 0 && message.messageType == MessageType.MASS}.list(max:channels.size(), sort:'id', order:'asc')
 		queues.each { queue -> queue.instance = instanceId }
 		GmsQueueWait.saveAll(queues)
-		log.info "Collected (Instance: #${instanceId}): ${queues.size()} waiting queues"
+		if(queues.size() > 0){
+			log.info "Collected (Instance: #${instanceId}): ${queues.size()} waiting queues"
+		}
 	}
 	
 	/**
@@ -562,13 +556,8 @@ class GmsMessageService {
 				new GmsQueueSend(instance: instanceId, channel: channelId, message: queue.message, recipient: recipient).save()
 				if(idx % 100 == 0) cleanUpGorm()
 			}
-			log.info "Posted (Intance: #${instanceId}, Channel: #${channelId}): ${recipients.size()} messages"
-		}
-		queues.each { queue ->
-			if(queue.message.status != MessageStatus.SENDING){
-				queue.message.status = MessageStatus.SENDING
-			}
 			queue.delete()
+			log.info "Posted (Intance: #${instanceId}, Channel: #${channelId}): ${recipients.size()} messages"
 		}
 	}
 	
@@ -607,7 +596,9 @@ class GmsMessageService {
 				log.error ex.message
 			}
 		}
-		log.info("Sent (Intance: #${instanceId}, Channel: #${channelId}) : ${queues.size()} messages sent")
+		if(queues.size() > 0){
+			log.info("Sent (Intance: #${instanceId}, Channel: #${channelId}) : ${queues.size()} messages sent")
+		}
 	}
 	
 	/**
@@ -620,21 +611,27 @@ class GmsMessageService {
 	def complete(int instanceId, int queueSize) {
 		def messages = GmsMessage.where{ status == MessageStatus.SENDING && messageType == MessageType.MASS }.list(sort:'id', order:'asc')
 		messages.each { gmsMessageInstance ->
-			def (failedCount, sentCount) = GmsMessageRecipient.createCriteria().get{
-													projections {
-														sum('isFailed')
-														sum('isSent')
-													}
-													and{
-														eq('message', gmsMessageInstance)
-														eq('status', MessageStatus.COMPLETED)
-													}
-												}
+			def (failedCount, sentCount) = GmsMessageRecipient.executeQuery("""
+									SELECT COALESCE(SUM(CASE WHEN isFailed = true THEN 1 ELSE 0 END),0) AS failedCount,
+				 						   COALESCE(SUM(CASE WHEN isSent = true THEN 1 ELSE 0 END),0) AS sentCount
+									  FROM GmsMessageRecipient
+									 WHERE message = ? AND status ='COMPLETED'				 
+									""", [gmsMessageInstance]).get(0)
 			gmsMessageInstance.failedCount = failedCount
 			gmsMessageInstance.sentCount = sentCount
+			def count = GmsQueuePublish.where{ message == gmsMessageInstance }.count() +
+						GmsQueuePublish.where{ message == gmsMessageInstance }.count() +
+						GmsQueuePublish.where{ message == gmsMessageInstance }.count()
+			if(count == 0){
+				if(gmsMessageInstance.sentCount > 0) gmsMessageInstance.isSent = true
+				else gmsMessageInstance.isFailed = true
+			}
 			gmsMessageInstance.save()
 		}
-		log.info("Completed (Intance: #${instanceId}) : ${messages.grep{it.status == MessageStatus.COMPLETED}.size()} messages completed")
+		def completed = messages.grep{it.status == MessageStatus.COMPLETED}.size()
+		if(completed > 0){
+			log.info("Completed (Intance: #${instanceId}) : ${completed} messages completed")
+		}
 	}
 	
 	/**
@@ -645,22 +642,23 @@ class GmsMessageService {
 	 */
 	def terminate(int instanceId, int terminatePreserveDays) {
 		def terminateDate = use(TimeCategory) { 
-				Environment.executeForCurrentEnvironment {
-					production {
-						new Date() - terminatePreserveDays.days
-					}
-					development {
-						new Date() - 30.seconds
-					}
+			Environment.executeForCurrentEnvironment {
+				production {
+					new Date() - terminatePreserveDays.days
 				}
-			}.format('yyyyMMddHHmmss')
+				development {
+					new Date() - 300.seconds
+				}
+			}
+		}.format('yyyyMMddHHmmss')
 		
 		terminateMessage(instanceId, terminateDate)
 		terminateRecipient(instanceId, terminateDate)
+		terminateSender(instanceId, terminateDate)
 	}
 	
 	/**
-	 * 메시지 테이블 백업(GMS_MESSAGE -> GMS_MESSAGE_LOG_YYYYMM)
+	 * 메시지 테이블 백업(GMS_MESSAGE -> GMS_LOG_MESSAGE_YYYYMM)
 	 * 
 	 * @param instanceId
 	 * @param terminateDate
@@ -668,23 +666,27 @@ class GmsMessageService {
 	@Transactional(propagation=Propagation.REQUIRES_NEW) 
 	def terminateMessage(int instanceId, String terminateDate){
 		def sourceTable = "GMS_MESSAGE"
-		def targetTable = "GMS_MESSAGE_LOG_${terminateDate.substring(0,6)}"
+		def targetTable = "GMS_LOG_MESSAGE_${terminateDate.substring(0,6)}"
 		
 		GmsMessage.withSession { session ->
 			def sql = new Sql(session.connection())
 			createLogTable(sql, sourceTable, targetTable)
 			
-			def (terminated, moved, deleted) = [0, 0, 0]
 			def criteria = GmsMessage.where{ status == MessageStatus.COMPLETED && lastEventTime <= terminateDate }
-			terminated = criteria.updateAll(status: MessageStatus.TERMINATED)
-			moved = sql.executeUpdate("INSERT INTO ${Sql.expand(targetTable)} SELECT * FROM ${Sql.expand(sourceTable)} WHERE status = 'TERMINATED'")
-			deleted =  criteria.deleteAll()
-			log.info "Terminated (Intance: #${instanceId}, terminateDate: ${terminateDate}): ${terminated} messages terminated, ${moved} moved to Log, ${deleted} deleted"
+			if(criteria.find() != null){
+				def (terminated, moved, deleted) = [0, 0, 0]
+				terminated = criteria.updateAll(status: MessageStatus.TERMINATED, terminatedTime: new Date())
+				if(terminated > 0){
+					moved = sql.executeUpdate("INSERT INTO ${Sql.expand(targetTable)} SELECT * FROM ${Sql.expand(sourceTable)} WHERE status = 'TERMINATED'")
+					deleted =  sql.executeUpdate("DELETE FROM ${Sql.expand(sourceTable)} WHERE status = 'TERMINATED'")
+					log.info "Terminated (Intance: #${instanceId}, terminateDate: ${terminateDate}): ${terminated} messages terminated, ${moved} moved to Log, ${deleted} deleted"
+				}
+			}
 		}
 	}
 	
 	/**
-	 * 수신자 테이블 백업(GMS_MESSAGE_RECIPIENT -> GMS_MESSAGE_RECIPIENT_LOG_YYYYMM)
+	 * 수신자 테이블 백업(GMS_MESSAGE_RECIPIENT -> GMS_LOG_MESSAGE_RECIPIENT_LOG)
 	 * 
 	 * @param instanceId
 	 * @param terminateDate
@@ -692,21 +694,53 @@ class GmsMessageService {
 	@Transactional(propagation=Propagation.REQUIRES_NEW)
 	def terminateRecipient(int instanceId, String terminateDate){
 		def sourceTable = "GMS_MESSAGE_RECIPIENT"
-		def targetTable = "GMS_MESSAGE_RECIPIENT_LOG_${terminateDate.substring(0,6)}"
+		def targetTable = "GMS_LOG_MESSAGE_RECIPIENT_${terminateDate.substring(0,6)}"
 		
 		GmsMessageRecipient.withSession { session ->
 			def sql = new Sql(session.connection())
 			createLogTable(sql, sourceTable, targetTable)
 			
-			def (terminated, moved, deleted) = [0, 0, 0]
 			def criteria = GmsMessageRecipient.where{ status == MessageStatus.COMPLETED && lastEventTime <= terminateDate }
-			terminated = criteria.updateAll(status: MessageStatus.TERMINATED)
-			moved = sql.executeUpdate("INSERT INTO ${Sql.expand(targetTable)} SELECT * FROM ${Sql.expand(sourceTable)} WHERE status = 'TERMINATED'")
-			deleted =  criteria.deleteAll()
-			log.info "Terminated (Intance: #${instanceId}, terminateDate: ${terminateDate}): ${terminated} messages terminated, ${moved} moved to Log, ${deleted} deleted"
+			if(criteria.find() != null){
+				def (terminated, moved, deleted) = [0, 0, 0]
+				terminated = criteria.updateAll(status: MessageStatus.TERMINATED, terminatedTime: new Date())
+				if(terminated > 0){
+					moved = sql.executeUpdate("INSERT INTO ${Sql.expand(targetTable)} SELECT * FROM ${Sql.expand(sourceTable)} WHERE status = 'TERMINATED'")
+					deleted =  sql.executeUpdate("DELETE FROM ${Sql.expand(sourceTable)} WHERE status = 'TERMINATED'")
+					log.info "Terminated (Intance: #${instanceId}, terminateDate: ${terminateDate}): ${terminated} messages terminated, ${moved} moved to Log, ${deleted} deleted"
+				}
+			}
 		}
 	}
 	
+	
+	/**
+	 * 발신자 테이블 백업(GMS_MESSAGE_SENDER -> GMS_LOG_MESSAGE_SENDER_YYYYMM)
+	 * 
+	 * @param instanceId
+	 * @param terminateDate
+	 */
+	@Transactional(propagation=Propagation.REQUIRES_NEW)
+	def terminateSender(int instanceId, String terminateDate){
+		def sourceTable = "GMS_MESSAGE_SENDER"
+		def targetTable = "GMS_LOG_MESSAGE_SENDER_${terminateDate.substring(0,6)}"
+		
+		GmsMessageSender.withSession { session ->
+			def sql = new Sql(session.connection())
+			createLogTable(sql, sourceTable, targetTable)
+			
+			def criteria = GmsMessageSender.where{ status == MessageStatus.COMPLETED && lastEventTime <= terminateDate }
+			if(criteria.find() != null){
+				def (terminated, moved, deleted) = [0, 0, 0]
+				terminated = criteria.updateAll(status: MessageStatus.TERMINATED, terminatedTime: new Date())
+				if(terminated > 0){
+					moved = sql.executeUpdate("INSERT INTO ${Sql.expand(targetTable)} SELECT * FROM ${Sql.expand(sourceTable)} WHERE status = 'TERMINATED'")
+					deleted =  sql.executeUpdate("DELETE FROM ${Sql.expand(sourceTable)} WHERE status = 'TERMINATED'")
+					log.info "Terminated (Intance: #${instanceId}, terminateDate: ${terminateDate}): ${terminated} messages terminated, ${moved} moved to Log, ${deleted} deleted"
+				}
+			}
+		}
+	}
 	/**
 	 * 백업테이블 생성
 	 * 

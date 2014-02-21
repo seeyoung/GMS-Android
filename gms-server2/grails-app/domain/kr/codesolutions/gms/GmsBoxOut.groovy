@@ -5,6 +5,7 @@ import java.util.Date;
 class GmsBoxOut {
 	static mapping = {
 		version false
+		id generator:'sequence', params:[sequence:'SQ_GMSBOXOUT_ID']
 	}
 
 	static belongsTo = [message: GmsMessage]
@@ -16,9 +17,9 @@ class GmsBoxOut {
 	}
 	
 	def beforeInsert() {
-	 }
+	}
 	
 	def beforeUpdate() {
 	   modifiedTime = new Date()
-	 }
+	}
 }

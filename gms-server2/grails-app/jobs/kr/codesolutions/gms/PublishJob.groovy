@@ -18,14 +18,12 @@ class PublishJob {
 		def queueSize = context.mergedJobDataMap.get('queueSize')
 
 		log.info "<START> Publish message job(${d})"
-		if(gmsInstanceLockService.lock(InstanceLock.PUBLISH, instanceId)){
-			try{
-				gmsMessageService.publish(instanceId, channelRange, queueSize)
-			}catch(Exception ex){
-				log.error ex
-			}
-			gmsInstanceLockService.unlock(InstanceLock.PUBLISH, instanceId)
+		try{
+			gmsMessageService.publish(instanceId, channelRange, queueSize)
+		}catch(Exception ex){
+			log.error ex
 		}
+		gmsInstanceLockService.unlock(InstanceLock.PUBLISH, instanceId)
 		log.info "<END> Publish message job(${d})"
 			
 	}

@@ -11,6 +11,7 @@ import kr.codesolutions.gms.constants.SendType
 class GmsMessageRecipient {
 	static mapping = {
 		version false
+		id generator:'sequence', params:[sequence:'SQ_GMSRECIPIENT_ID']
 		status index: 'IDX_GMSRECIPIENT_1'
 		lastEventTime index: 'IDX_GMSRECIPIENT_1'
 	}
@@ -40,12 +41,16 @@ class GmsMessageRecipient {
 	boolean isFailed = false
 	boolean isSent = false
 	boolean isRead = false
+	int getFailedCount(){ isFailed?1:0 }
+	int getSentCount(){ isSent?1:0 }
 	
 	String error
 
 	Date createdTime = new Date()
 	Date modifiedTime = new Date()
 	String lastEventTime = modifiedTime.format('yyyyMMddHHmmss')
+	
+	static transients = ['failedCount','sentCount']
 	
 	static constraints = {
 		userId blank: false, maxSize: 50
