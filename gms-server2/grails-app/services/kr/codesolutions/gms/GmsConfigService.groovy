@@ -151,7 +151,11 @@ class GmsConfigService {
 				}
 			}
 			
-			// 메시지 폐기 작업
+			// 메시지 완료처리 작업
+			CompleteJob.schedule(gmsInstance.completeIntervalSeconds*1000, -1, [instance: instance, channelRange: gmsInstance.channelRange, queueSize: gmsInstance.queueSize])
+			log.info "<STARTED> Terminate Message job"
+			
+			// 메시지 폐기처리 작업
 			TerminateJob.schedule(gmsInstance.terminateIntervalSeconds*1000, -1, [instance: instance, channelRange: gmsInstance.channelRange, queueSize: gmsInstance.queueSize, preserveDays: gmsInstance.preserveDays])
 			log.info "<STARTED> Terminate Message job"
 			

@@ -1,5 +1,7 @@
 package kr.codesolutions.gms
 
+import java.util.Date;
+
 import kr.codesolutions.gms.constants.MessageStatus
 import kr.codesolutions.gms.constants.MessageType
 import kr.codesolutions.gms.constants.OwnType
@@ -10,6 +12,8 @@ import org.grails.databinding.BindingFormat
 class GmsMessage {
 	static mapping = {
 		version false
+		status index: 'IDX_GMSMESSAGE_1'
+		lastEventTime index: 'IDX_GMSMESSAGE_1'
 	}
 
 	String subject
@@ -25,24 +29,27 @@ class GmsMessage {
 	GmsMessageSender sender
 	String recipientFilter
 	int recipientCount = 0
+	int failedCount = 0
 	int sentCount = 0
 	
 	Date draftTime = new Date()
 	Date publishTime
 	Date waitTime
 	Date sendTime
+	Date failedTime
 	Date sentTime
 	Date readTime
 	Date completedTime
 	Date terminatedTime
+	boolean isFailed = false
 	boolean isSent = false
 	boolean isRead = false
-	boolean isTerminated = false
 	
 	String error
 
 	Date createdTime = new Date()
 	Date modifiedTime = new Date()
+	String lastEventTime = modifiedTime.format('yyyyMMddHHmmss')
 	
 	static constraints = {
 		ownType blank: false, maxSize: 10
@@ -56,9 +63,10 @@ class GmsMessage {
 		publishTime nullable: true
 		waitTime nullable: true
 		sendTime nullable: true
+		failedTime nullable: true
 		sentTime nullable: true
-		readTime nullable: true
 		completedTime nullable: true
+		readTime nullable: true
 		terminatedTime nullable: true
 		error nullable: true, maxSize: 255
 	}
@@ -68,6 +76,26 @@ class GmsMessage {
 	
 	def beforeUpdate() {
 		modifiedTime = new Date()
+		lastEventTime = modifiedTime.format('yyyyMMddHHmmss')
+		
+		if (isDirty('failedCount') && isDirty('sentCount')) {
+			if(failedCount >= recipientCount){
+				isFailed = true
+			}else if(failedCount + sentCount >= recipientCount){
+				isSent = true
+			}
+		}
+		if (isDirty('isFailed') && isFailed) {
+			failedTime = new Date()
+			status = MessageStatus.COMPLETED
+		}
+		if (isDirty('isSent') && isSent) {
+			sentTime = new Date()
+			status = MessageStatus.COMPLETED
+		}
+		if (isDirty('isRead') && isRead) {
+			readTime = new Date()
+		}
 		if (isDirty('status')) {
 			switch(status){
 				case MessageStatus.DRAFT: draftTime = new Date(); break
@@ -78,9 +106,6 @@ class GmsMessage {
 				case MessageStatus.COMPLETED: completedTime = new Date(); break
 				case MessageStatus.TERMINATED: terminatedTime = new Date(); break
 			}
-		}
-		if (isDirty('isRead') && isRead) {
-			readTime = new Date()
 		}
 	 }
 }

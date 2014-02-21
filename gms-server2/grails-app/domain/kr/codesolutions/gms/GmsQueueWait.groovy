@@ -23,9 +23,6 @@ class GmsQueueWait {
 	}
 	
 	def beforeInsert() {
-		if(message.status != MessageStatus.WAITING){
-			message.status = MessageStatus.WAITING
-		}
 	}
 	
 	def beforeUpdate() {

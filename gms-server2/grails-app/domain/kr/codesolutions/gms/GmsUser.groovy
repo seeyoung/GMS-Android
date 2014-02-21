@@ -5,9 +5,10 @@ import java.util.Date;
 class GmsUser {
 	static mapping = {
 		version false
-		name index: 'IDX_GMSUSER_0'
-		phoneNumber index: 'IDX_GMSUSER_0'
-		registrationId index: 'IDX_GMSUSER_1'
+		name index: 'IDX_GMSUSER_1'
+		phoneNumber index: 'IDX_GMSUSER_1'
+		registrationId index: 'IDX_GMSUSER_2'
+		lastEventTime index: 'IDX_GMSRECIPIENT_3'
 	}
 	
 	String userId
@@ -21,7 +22,8 @@ class GmsUser {
 
 	Date createdTime = new Date()
 	Date modifiedTime = new Date()
-
+	String lastEventTime = modifiedTime.format('yyyyMMddHHmmss')
+	
 	static constraints = {
 		userId unique: true, blank: false, maxSize: 50
 		name blank: false, maxSize: 50
@@ -36,6 +38,7 @@ class GmsUser {
 	
 	def beforeUpdate() {
 		modifiedTime = new Date()
+		lastEventTime = modifiedTime.format('yyyyMMddHHmmss')
 		if (isDirty('errorCount') && errorCount >= 3) {
 			enabled = false
 		}

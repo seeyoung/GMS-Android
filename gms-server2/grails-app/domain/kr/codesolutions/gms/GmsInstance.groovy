@@ -20,7 +20,8 @@ class GmsInstance {
 	int collectIntervalSeconds = 10 // Instance 할당 주기(초)(예:10 -> 10초)
 	int postIntervalSeconds = 10 // 메시지 채널할당 주기(초)(예:10 -> 10초)
 	int sendIntervalSeconds = 120 // 메시지 전송주기(초)(예:120 -> 2분, 1개 channel이 메시지 1000건 발송시 약 2분 소요됨)
-	int terminateIntervalSeconds = 60 // 메시지 폐기처리주기(초)(예:60 -> 60초)
+	int completeIntervalSeconds = 60 // 메시지 완료처리 주기(초)(예:10 -> 10초)
+	int terminateIntervalSeconds = 60 // 메시지 폐기처리 주기(초)(예:60 -> 60초)
 	int preserveDays = 7 // 보존기간(일)(예:7 -> 발송후 7일 경과된 메시지는 삭제대상)
 	int resendPendingSeconds = 30 // 메시지 재발송 대기시간(초)(예:10 -> 10초)
 	
