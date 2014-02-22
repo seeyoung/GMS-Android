@@ -9,8 +9,7 @@ class GmsQueueDraft {
 		id generator:'sequence', params:[sequence:'SQ_GMSQUEUEDRAFT_ID']
 	}
 	
-	static belongsTo = [message: GmsMessage]
-	
+	GmsMessage message
 	long offset = 0 // Publish할 처음 GmsUser ID위치
 	long end = 0 // Publish할 마지막 GmsUser ID위치
 	int recipientCount = 0

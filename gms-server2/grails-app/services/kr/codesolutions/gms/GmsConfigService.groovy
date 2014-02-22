@@ -2,7 +2,6 @@ package kr.codesolutions.gms
 
 import grails.transaction.Transactional
 import kr.codesolutions.gms.constants.InstanceLock
-import kr.codesolutions.gms.constants.MessageType
 
 import org.hibernate.Session
 
@@ -95,15 +94,7 @@ class GmsConfigService {
 //						recipientId: 'max3', trMsg: 'Test3').save()
 //		}
 		
-		def s = new GmsMessageSender(
-			userId: 'gmsmaster',
-			name: '발송관리자',
-			phoneNumber: '-',
-			registrationId: '-',
-			email: 'gmsmaster@gmail.com')
-
 		def m = new GmsMessage(reservationTime: new Date(),
-			sender: s, 
 			subject: 'subject', 
 			content: 'content',
 			recipientFilter: "user_id LIKE 'ddong%'"

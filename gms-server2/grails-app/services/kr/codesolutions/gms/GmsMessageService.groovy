@@ -5,7 +5,6 @@ import grails.util.Environment
 import groovy.sql.Sql
 import groovy.time.TimeCategory
 import kr.codesolutions.gms.constants.MessageStatus
-import kr.codesolutions.gms.constants.MessageType
 import kr.codesolutions.gms.constants.SendPolicy
 import kr.codesolutions.gms.constants.SendType
 
@@ -398,6 +397,14 @@ class GmsMessageService {
 	def draft(GmsMessage message){
 		def instance = Eval.me(grailsApplication.config.gms.instance)
 		def gmsInstance = GmsInstance.get(instance)
+		
+		def sender = GmsUser.findByUserId(message.senderUserId)
+		if(sender != null){
+			message.senderName = sender.name
+			message.senderPhoneNumber = sender.phoneNumber
+			message.senderRegistrationId = sender.registrationId
+			message.senderEmail = sender.email
+		}
 		def (offset, end, recipientCount) = GmsUser.createCriteria().get{
 												projections {
 													min('id')
@@ -408,7 +415,7 @@ class GmsMessageService {
 											}
 		message.recipientCount = recipientCount
 		// 메시지 수신자의 수가 queueSize(1채널이 1회에 보낼수 있는 최대 메시지 수)보다 크면 대량메시지로 설정
-		if(recipientCount >= gmsInstance.queueSize) message.messageType = MessageType.MASS 
+		if(recipientCount >= gmsInstance.queueSize) message.isBulk = true 
 		new GmsQueueDraft(message: message, offset: offset?:0, end: end?:0, recipientCount: recipientCount).save()
 	}
 	
@@ -476,8 +483,8 @@ class GmsMessageService {
 	 * @param queueSize 메시지 할당크기
 	 */
 	def publish(int instanceId, Range channels, int queueSize){
-		def queues = GmsQueuePublish.where{instance == instanceId && message.messageType == MessageType.NORMAL}.list(max:queueSize, offset:queueSize*(instanceId-1), sort:'id', order:'asc')
-		queues += GmsQueuePublish.where{instance == instanceId && message.messageType == MessageType.MASS}.list(max:channels.size(), sort:'id', order:'asc')
+		def queues = GmsQueuePublish.where{instance == instanceId && message.isBulk == false}.list(max:queueSize, offset:queueSize*(instanceId-1), sort:'id', order:'asc')
+		queues += GmsQueuePublish.where{instance == instanceId && message.isBulk == true}.list(max:channels.size(), sort:'id', order:'asc')
 		queues.each { queue ->
 			def message = queue.message
 			def users = GmsUser.createCriteria().list{
@@ -494,10 +501,7 @@ class GmsMessageService {
 														registrationId: user.registrationId,
 														email: user.email,
 														subject: message.subject,
-														content: message.content,
-														reservationTime: message.reservationTime,
-														ownType: message.ownType,
-														messageType: message.messageType
+														content: message.content
 														)
 				if(message.sendPolicy in SendType.values()){
 					recipient.sendType = message.sendPolicy
@@ -525,8 +529,8 @@ class GmsMessageService {
 	 * @param queueSize 채널의 QUEUE크기로 할당할 메시지 갯수
 	 */
 	def collect(int instanceId, Range channels, int queueSize){
-		def queues = GmsQueueWait.where{instance == 0 && message.messageType == MessageType.NORMAL}.list(max:queueSize, sort:'id', order:'asc')
-		queues += GmsQueueWait.where{instance == 0 && message.messageType == MessageType.MASS}.list(max:channels.size(), sort:'id', order:'asc')
+		def queues = GmsQueueWait.where{instance == 0 && message.isBulk == false}.list(max:queueSize, sort:'id', order:'asc')
+		queues += GmsQueueWait.where{instance == 0 && message.isBulk == true}.list(max:channels.size(), sort:'id', order:'asc')
 		queues.each { queue -> queue.instance = instanceId }
 		GmsQueueWait.saveAll(queues)
 		if(queues.size() > 0){
@@ -543,8 +547,8 @@ class GmsMessageService {
 	 * @param queueSize 채널의 QUEUE크기로 할당할 메시지 갯수
 	 */
 	def post(int instanceId, Range channels, int queueSize){
-		def queues = GmsQueueWait.where{instance == instanceId && message.messageType == MessageType.NORMAL}.list(max:queueSize, sort:'id', order:'asc')
-		queues += GmsQueueWait.where{instance == instanceId && message.messageType == MessageType.MASS}.list(max:channels.size(), sort:'id', order:'asc')
+		def queues = GmsQueueWait.where{instance == instanceId && message.isBulk == false}.list(max:queueSize, sort:'id', order:'asc')
+		queues += GmsQueueWait.where{instance == instanceId && message.isBulk == true}.list(max:channels.size(), sort:'id', order:'asc')
 		queues.eachWithIndex { queue, index ->
 			def channelId = channels.get(index%channels.size())
 			def recipients = GmsMessageRecipient.where{
@@ -563,8 +567,8 @@ class GmsMessageService {
 	
 	/**
 	 * queue에 저장된 메시지를 instance, channel로 queueSize개 검색하여 발송한다.
-	 * messageType='NORMAL'인 메시지는 한 Channel에서 발송이 완료되므로 GmsMessage에대한 경쟁이 발생하지않으므로 직접 sentCount, Complete처리
-	 * messageType='MASS'인 메시지는 여러개의 Instance, Channel에서 발송이 수행되므로 별도의 Complete Job에서 sentCount, Complete처리
+	 * isBulk=false인 메시지는 한 Channel에서 발송이 완료되므로 GmsMessage에대한 경쟁이 발생하지않으므로 직접 sentCount, Complete처리
+	 * isBulk=true인 메시지는 여러개의 Instance, Channel에서 발송이 수행되므로 별도의 Complete Job에서 sentCount, Complete처리
 	 * 
 	 * @param instanceId 서버 Instance번호
 	 * @param channelId 메시지 발송 채널
@@ -576,17 +580,17 @@ class GmsMessageService {
 			def message = queue.message
 			def recipient = queue.recipient
 			try{
-				def returnCode = send(recipient)
+				def returnCode = send(message, recipient)
 				
 				if(returnCode == null){
 					recipient.isSent = true
-					if(message.messageType == MessageType.NORMAL){
+					if(message.isBulk == false){
 						message.sentCount += 1
 					}
 				}else{
 					recipient.isFailed = true
 					recipient.error = returnCode
-					if(message.messageType == MessageType.NORMAL){
+					if(message.isBulk == false){
 						message.failedCount += 1
 					}
 				}
@@ -609,7 +613,7 @@ class GmsMessageService {
 	 * @param queueSize 채널의 QUEUE크기로 1회 처리단위
 	 */
 	def complete(int instanceId, int queueSize) {
-		def messages = GmsMessage.where{ status == MessageStatus.SENDING && messageType == MessageType.MASS }.list(sort:'id', order:'asc')
+		def messages = GmsMessage.where{ status == MessageStatus.SENDING && isBulk == true }.list(sort:'id', order:'asc')
 		messages.each { gmsMessageInstance ->
 			def (failedCount, sentCount) = GmsMessageRecipient.executeQuery("""
 									SELECT COALESCE(SUM(CASE WHEN isFailed = true THEN 1 ELSE 0 END),0) AS failedCount,
@@ -652,9 +656,8 @@ class GmsMessageService {
 			}
 		}.format('yyyyMMddHHmmss')
 		
-		terminateMessage(instanceId, terminateDate)
 		terminateRecipient(instanceId, terminateDate)
-		terminateSender(instanceId, terminateDate)
+		terminateMessage(instanceId, terminateDate)
 	}
 	
 	/**
@@ -686,7 +689,7 @@ class GmsMessageService {
 	}
 	
 	/**
-	 * 수신자 테이블 백업(GMS_MESSAGE_RECIPIENT -> GMS_LOG_MESSAGE_RECIPIENT_LOG)
+	 * 수신자 테이블 백업(GMS_MESSAGE_RECIPIENT -> GMS_LOG_MESSAGE_RECIPIENT_YYYYMM)
 	 * 
 	 * @param instanceId
 	 * @param terminateDate
@@ -713,34 +716,6 @@ class GmsMessageService {
 		}
 	}
 	
-	
-	/**
-	 * 발신자 테이블 백업(GMS_MESSAGE_SENDER -> GMS_LOG_MESSAGE_SENDER_YYYYMM)
-	 * 
-	 * @param instanceId
-	 * @param terminateDate
-	 */
-	@Transactional(propagation=Propagation.REQUIRES_NEW)
-	def terminateSender(int instanceId, String terminateDate){
-		def sourceTable = "GMS_MESSAGE_SENDER"
-		def targetTable = "GMS_LOG_MESSAGE_SENDER_${terminateDate.substring(0,6)}"
-		
-		GmsMessageSender.withSession { session ->
-			def sql = new Sql(session.connection())
-			createLogTable(sql, sourceTable, targetTable)
-			
-			def criteria = GmsMessageSender.where{ status == MessageStatus.COMPLETED && lastEventTime <= terminateDate }
-			if(criteria.find() != null){
-				def (terminated, moved, deleted) = [0, 0, 0]
-				terminated = criteria.updateAll(status: MessageStatus.TERMINATED, terminatedTime: new Date())
-				if(terminated > 0){
-					moved = sql.executeUpdate("INSERT INTO ${Sql.expand(targetTable)} SELECT * FROM ${Sql.expand(sourceTable)} WHERE status = 'TERMINATED'")
-					deleted =  sql.executeUpdate("DELETE FROM ${Sql.expand(sourceTable)} WHERE status = 'TERMINATED'")
-					log.info "Terminated (Intance: #${instanceId}, terminateDate: ${terminateDate}): ${terminated} messages terminated, ${moved} moved to Log, ${deleted} deleted"
-				}
-			}
-		}
-	}
 	/**
 	 * 백업테이블 생성
 	 * 
@@ -768,15 +743,16 @@ class GmsMessageService {
 	 * 메시지를 수신자 1명에게 전송
 	 * 
 	 * @param message
+	 * @param recipient
 	 * @return
 	 */
-	def send(GmsMessageRecipient message){
+	def send(GmsMessage message, GmsMessageRecipient recipient){
 		Environment.executeForCurrentEnvironment {
 			production {
-				switch(message.sendType){
-					case SendType.GCM: return sendGCM(message)
-					case SendType.SMS: return sendSMS(message)
-					case SendType.EMAIL: return sendEMAIL(message)
+				switch(recipient.sendType){
+					case SendType.GCM: return sendGCM(message, recipient)
+					case SendType.SMS: return sendSMS(message, recipient)
+					case SendType.EMAIL: return sendEMAIL(message, recipient)
 				}
 			}
 			development {
@@ -788,10 +764,11 @@ class GmsMessageService {
 	 * 메시지를 수신자 1명에게 GCM 전송
 	 * 
 	 * @param message
+	 * @param recipient
 	 * @return 에러코드
 	 */
-	def sendGCM(GmsMessageRecipient message) {
-		if(message.registrationId == null){
+	def sendGCM(GmsMessage message, GmsMessageRecipient recipient) {
+		if(recipient.registrationId == null){
 			return 'Invalid registrationId'
 		}
 		if(gcmSender == null){
@@ -799,15 +776,15 @@ class GmsMessageService {
 		}
 		Message gcmMessage = new Message.Builder()
 				.collapseKey('GMS')
-				.addData('GMS.id', message.id.toString())
-				.addData('GMS.ownType', message.ownType)
-				.addData('GMS.msgType', message.msgType)
-				.addData('GMS.content', URLEncoder.encode(message.content, 'UTF-8') )
-				.addData('GMS.senderId', message.senderId)
+				.addData('GMS.id', recipient.id.toString())
+				.addData('GMS.ownType', message.isPersonal)
+				.addData('GMS.msgType', message.isCallback)
+				.addData('GMS.content', URLEncoder.encode(recipient.content, 'UTF-8') )
+				.addData('GMS.senderId', message.senderUserId)
 				.build()
 		//log.debug 'GCM message: ' + gcmMessage.toString()
 
-		Result result = gcmSender.send(gcmMessage, message.registrationId, 3)
+		Result result = gcmSender.send(gcmMessage, recipient.registrationId, 3)
 		//log.debug 'Result :' + message.userId + ',' + result.messageId
 		if(result.messageId == null){
 			return result.errorCode
@@ -818,18 +795,20 @@ class GmsMessageService {
 	 * 메시지를 수신자 1명에게 SMS 전송
 	 * 
 	 * @param message
+	 * @param recipient
 	 * @return 에러코드
 	 */
-	def sendSMS(GmsMessageRecipient message) {
+	def sendSMS(GmsMessage message, GmsMessageRecipient recipient) {
 	}
 	
 	/**
 	 * 메시지를 수신자 1명에게 EMAIL 전송
 	 * 
 	 * @param message
+	 * @param recipient
 	 * @return 에러코드
 	 */
-	def sendEMAIL(GmsMessageRecipient message) {
+	def sendEMAIL(GmsMessage message, GmsMessageRecipient recipient) {
 	}
 	
 	/**

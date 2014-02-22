@@ -1,10 +1,6 @@
 package kr.codesolutions.gms
 
-import java.util.Date;
-
 import kr.codesolutions.gms.constants.MessageStatus
-import kr.codesolutions.gms.constants.MessageType
-import kr.codesolutions.gms.constants.OwnType
 import kr.codesolutions.gms.constants.SendPolicy
 
 import org.grails.databinding.BindingFormat
@@ -21,13 +17,17 @@ class GmsMessage {
 	String content
 	@BindingFormat('yyyy-MM-dd HH:mm')
 	Date reservationTime
-	OwnType ownType = OwnType.PERSONAL
-	MessageType messageType = MessageType.NORMAL
-	boolean isCallback = true
+	boolean isPersonal = false
+	boolean isBulk = false
+	boolean isCallback = false
 	SendPolicy sendPolicy = SendPolicy.GCM
 	MessageStatus status = MessageStatus.DRAFT
 	
-	GmsMessageSender sender
+	String senderUserId = 'gmsmaster'
+	String senderName
+	String senderPhoneNumber
+	String senderRegistrationId
+	String senderEmail
 	String recipientFilter
 	int recipientCount = 0
 	int failedCount = 0
@@ -53,12 +53,15 @@ class GmsMessage {
 	String lastEventTime = modifiedTime.format('yyyyMMddHHmmss')
 	
 	static constraints = {
-		ownType blank: false, maxSize: 10
-		messageType blank: false, maxSize: 10
 		subject blank: false, maxSize: 255
 		content blank: false, maxSize: 2000
 		sendPolicy blank: false, maxSize: 10
 		status blank: false, maxSize: 10
+		senderUserId blank: false, maxSize: 50
+		senderName nullable: true, maxSize: 50
+		senderPhoneNumber nullable: true, maxSize: 20
+		senderRegistrationId nullable: true, maxSize: 255
+		senderEmail nullable: true, maxSize: 50
 		recipientFilter nullable: true, maxSize: 255
 		draftTime nullable: true
 		publishTime nullable: true
@@ -104,7 +107,7 @@ class GmsMessage {
 				case MessageStatus.WAITING: waitTime = new Date(); break
 				case MessageStatus.SENDING: sendTime = new Date(); break
 				case MessageStatus.SENT: sentTime = new Date(); isSent = true; break
-				case MessageStatus.COMPLETED: completedTime = new Date(); sender.status = status; break
+				case MessageStatus.COMPLETED: completedTime = new Date(); break
 				case MessageStatus.TERMINATED: terminatedTime = new Date(); break
 			}
 		}

@@ -2,14 +2,14 @@ package kr.codesolutions.gms
 
 import java.util.Date;
 
-class GmsBoxOut {
+class GmsBoxIn {
 	static mapping = {
 		version false
-		id generator:'sequence', params:[sequence:'SQ_GMSBOXOUT_ID']
+		id generator:'sequence', params:[sequence:'SQ_GMSBOXIN_ID']
 	}
 
 	static belongsTo = [owner:GmsUser]
-	GmsMessage message
+	GmsMessageRecipient recipient
 	
 	Date createdTime = new Date()
 	Date modifiedTime = new Date()

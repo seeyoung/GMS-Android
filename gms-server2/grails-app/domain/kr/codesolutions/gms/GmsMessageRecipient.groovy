@@ -1,11 +1,6 @@
 package kr.codesolutions.gms
 
-import java.util.Date;
-
 import kr.codesolutions.gms.constants.MessageStatus
-import kr.codesolutions.gms.constants.MessageType;
-import kr.codesolutions.gms.constants.OwnType;
-import kr.codesolutions.gms.constants.SendPolicy
 import kr.codesolutions.gms.constants.SendType
 
 class GmsMessageRecipient {
@@ -23,13 +18,9 @@ class GmsMessageRecipient {
 	String phoneNumber
 	String registrationId
 	String email
-	
+
 	String subject
 	String content
-	Date reservationTime
-	OwnType ownType = OwnType.PERSONAL 
-	MessageType messageType = MessageType.NORMAL
-	boolean isCallback = true
 	SendType sendType = SendType.GCM
 	MessageStatus status = MessageStatus.WAITING
 	
@@ -41,8 +32,6 @@ class GmsMessageRecipient {
 	boolean isFailed = false
 	boolean isSent = false
 	boolean isRead = false
-	int getFailedCount(){ isFailed?1:0 }
-	int getSentCount(){ isSent?1:0 }
 	
 	String error
 
@@ -59,8 +48,6 @@ class GmsMessageRecipient {
 		registrationId nullable: true, maxSize: 255
 		email nullable: true, maxSize: 50
 		sendType nullable: true, maxSize: 10
-		ownType blank: false, maxSize: 10
-		messageType blank: false, maxSize: 10
 		subject blank: false, maxSize: 255
 		content blank: false, maxSize: 2000
 		status blank: false, maxSize: 10

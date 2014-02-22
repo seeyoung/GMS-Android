@@ -7,12 +7,15 @@ class GmsQueueSend {
 	static mapping = {
 		version false
 		id generator:'sequence', params:[sequence:'SQ_GMSQUEUESEND_ID']
-		channel index: 'IDX_GMSQUEUESENDING_1'
+		instance index: 'IDX_GMSQUEUESEND_1'
+		channel index: 'IDX_GMSQUEUESEND_1'
 	}
 	
 	byte instance = 1 // GMS Instance 번호
 	byte channel = 1 // 메시지 발송 채널 번호
-	static belongsTo = [message: GmsMessage, recipient: GmsMessageRecipient]
+
+	GmsMessage message
+	GmsMessageRecipient recipient
 	
 	Date createdTime = new Date()
 	Date modifiedTime = new Date()
