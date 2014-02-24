@@ -58,6 +58,10 @@
 
 						<g:sortableColumn property="phoneNumber" title="${message(code: 'gmsUser.phoneNumber.label', default: 'Phone Number')}"/>
 
+						<g:sortableColumn property="registrationId" title="${message(code: 'gmsUser.registrationId.label', default: 'Registration ID')}"/>
+
+						<g:sortableColumn property="email" title="${message(code: 'gmsUser.email.label', default: 'Email')}"/>
+
 						<g:sortableColumn property="enabled" title="${message(code: 'gmsUser.enabled.label', default: 'Enabled')}"/>
 					
 						<g:sortableColumn property="isSendable" title="${message(code: 'gmsUser.isSendable.label', default: 'isSendable')}"/>
@@ -79,6 +83,10 @@
 						<td>${fieldValue(bean: gmsUserInstance, field: "name")}</td>
 					
 						<td>${fieldValue(bean: gmsUserInstance, field: "phoneNumber")}</td>
+						
+						<td style="text-align:center"><g:checkBox name="registrationId" value="${gmsUserInstance.registrationId?true:false}" disabled="disabled" /></td>
+					
+						<td>${fieldValue(bean: gmsUserInstance, field: "email")}</td>
 					
 						<td style="text-align:center"><g:checkBox name="enabled" value="${gmsUserInstance.enabled}" disabled="disabled" /></td>
 					

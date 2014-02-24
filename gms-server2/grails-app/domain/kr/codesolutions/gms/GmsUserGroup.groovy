@@ -17,7 +17,7 @@ class GmsUserGroup {
 	
 	static constraints = {
 		name blank: false, maxSize: 255
-		filter nullable: true, maxSize: 255
+		filter nullable: true, blank: false, maxSize: 255
 	}
 	
 	def beforeInsert() {

@@ -63,51 +63,14 @@
 				</li>
 				</g:if>
 			
-				<g:if test="${gmsUserGroupInstance?.enabled}">
+				<g:if test="${gmsUserGroupInstance?.filter}">
 				<li class="fieldcontain">
-					<span id="enabled-label" class="property-label"><g:message code="gmsUserGroup.enabled.label" default="Enabled" /></span>
+					<span id="filter-label" class="property-label"><g:message code="gmsUserGroup.filter.label" default="Filter" /></span>
 					
-						<span class="property-value" aria-labelledby="enabled-label"><g:checkBox name="enabled" value="${gmsUserGroupInstance.enabled}" disabled="disabled"/></span>
+						<span class="property-value" aria-labelledby="filter-label"><g:fieldValue bean="${gmsUserGroupInstance}" field="filter"/></span>
 					
 				</li>
 				</g:if>
-			
-				<li class="fieldcontain">
-					<span id="members-label" class="property-label"><g:message code="gmsUserGroup.members.label" default="Members" /></span>
-					
-						<span class="property-value" aria-labelledby="members-label">
-						${gmsUserGroupInstance.members.size()}<g:message code="gmsUserGroup.members.count.label" default="Members" />
-						<fieldset class="buttons buttons-nobar">
-							<a class="add" href="javascript:openSearchWindow('${createLink(action:'searchUser', params:[id:gmsUserGroupInstance.id])}','SearchWindow');"><g:message code="default.button.add.label" default="Add" /></a>
-						</fieldset>
-						<table>
-						<thead>
-								<tr>
-								
-									<g:sortableColumn property="userId" title="${message(code: 'gmsUser.userId.label', default: 'User ID')}"/>
-			
-									<g:sortableColumn property="name" title="${message(code: 'gmsUser.name.label', default: 'Name')}"/>
-			
-									<g:sortableColumn property="phoneNumber" title="${message(code: 'gmsUser.phoneNumber.label', default: 'Phone Number')}"/>
-								</tr>
-							</thead>
-							<tbody>
-							<g:each in="${gmsUserGroupInstance.members}" status="i" var="gmsUserInstance">
-								<tr class="${(i % 2) == 0 ? 'even' : 'odd'}" onDblClick="deleteUser('${fieldValue(bean: gmsUserInstance, field: "id")}')">
-								
-									<td>${fieldValue(bean: gmsUserInstance, field: "userId")}</td>
-								
-									<td>${fieldValue(bean: gmsUserInstance, field: "name")}</td>
-								
-									<td style="text-align:center">${fieldValue(bean: gmsUserInstance, field: "phoneNumber")}</td>
-			
-								</tr>
-							</g:each>
-							</tbody>
-						</table>
-						</span>
-					
-				</li>
 			
 				<g:if test="${gmsUserGroupInstance?.modifiedTime}">
 				<li class="fieldcontain">

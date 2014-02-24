@@ -57,6 +57,13 @@
 				</li>
 
 				<li class="fieldcontain">
+					<span id="email-label" class="property-label"><g:message code="gmsUser.email.label" default="Email" /></span>
+					
+						<span class="property-value" aria-labelledby="email-label"><g:fieldValue bean="${gmsUserInstance}" field="email"/></span>
+					
+				</li>
+			
+				<li class="fieldcontain">
 					<span id="isSendable-label" class="property-label"><g:message code="gmsUser.isSendable.label" default="Sendable" /></span>
 					
 						<span class="property-value" aria-labelledby="isSendable-label"><g:checkBox name="isSendable" value="${gmsUserInstance?.isSendable}" disabled="disabled"/></span>

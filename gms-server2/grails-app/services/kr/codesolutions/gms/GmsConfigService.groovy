@@ -66,21 +66,20 @@ class GmsConfigService {
 			u2.save()
 			
 			new GmsUserGroup(
-					name: 'All',
-					//filter: '*',
+					name: '모든 사용자',
 					owner: m).save()
 						
-			10013.times{
-				new GmsUser(
-					userId: "ddong${it}",
-					name: "개똥${it}호",
-					phoneNumber: "tel${it}",
-					registrationId: "reg${it}",
-					email: "youngeun_ryu${it}@naver.com",
-					enabled: true
-				).save()
-				if(it % 100 == 0) cleanUpGorm()
-			}
+//			10013.times{
+//				new GmsUser(
+//					userId: "ddong${it}",
+//					name: "개똥${it}호",
+//					phoneNumber: "tel${it}",
+//					registrationId: "reg${it}",
+//					email: "youngeun_ryu${it}@naver.com",
+//					enabled: true
+//				).save()
+//				if(it % 100 == 0) cleanUpGorm()
+//			}
 
 			startUpJob()
 		}
@@ -95,14 +94,12 @@ class GmsConfigService {
 //		}
 		
 		def m = new GmsMessage(reservationTime: new Date(),
-			subject: 'subject', 
-			content: 'content',
-			recipientFilter: "user_id LIKE 'ddong%'"
-			)
-		m.save()
-		s.message = m
-		s.save()
-		gmsMessageService.draft(m)
+			subject: '${name}님 Hello!', 
+			content: '${name}님의 아이디는 ${userId}입니다.',
+			recipientUserId: 'dong'
+			//recipientFilter: "user_id LIKE 'ddong%'"
+			).save()
+		gmsMessageService.submit(m)
 		
 	}
 	

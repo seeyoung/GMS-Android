@@ -28,6 +28,7 @@ class GmsMessage {
 	String senderPhoneNumber
 	String senderRegistrationId
 	String senderEmail
+	String recipientUserId
 	String recipientFilter
 	int recipientCount = 0
 	int failedCount = 0
@@ -62,6 +63,7 @@ class GmsMessage {
 		senderPhoneNumber nullable: true, maxSize: 20
 		senderRegistrationId nullable: true, maxSize: 255
 		senderEmail nullable: true, maxSize: 50
+		recipientUserId nullable: true, maxSize: 50
 		recipientFilter nullable: true, maxSize: 255
 		draftTime nullable: true
 		publishTime nullable: true

@@ -25,7 +25,7 @@ class GmsQueuePublish {
 	}
 	
 	def beforeInsert() {
-		if(message.status == MessageStatus.DRAFT){
+		if(message.status == MessageStatus.SUBMIT){
 			message.status = MessageStatus.PUBLISHING
 		}
 	}

@@ -3,6 +3,7 @@ package kr.codesolutions.gms
 import grails.transaction.Transactional
 import grails.util.Environment
 import groovy.sql.Sql
+import groovy.text.GStringTemplateEngine
 import groovy.time.TimeCategory
 import kr.codesolutions.gms.constants.MessageStatus
 import kr.codesolutions.gms.constants.SendPolicy
@@ -25,6 +26,7 @@ class GmsMessageService {
 	def propertyInstanceMap = org.codehaus.groovy.grails.plugins.DomainClassGrailsPlugin.PROPERTY_INSTANCE_MAP
 	Sender gcmSender
 	def gmsInstanceLockService
+	def templateEngine = new GStringTemplateEngine()
 	
 	def cleanUpGorm() {
 		Session session = sessionFactory.currentSession
@@ -390,11 +392,11 @@ class GmsMessageService {
 	
 	/**
 	 * 생성된 메시지를 발송하기위하여 제출한다. 
-	 * 제출된 메시지는 DISTRIBUTE -> PUBLISH -> COLLECT -> SEND -> 과정을 거친다.
+	 * 제출된 메시지는 SUBMIT -> DISTRIBUTE -> PUBLISH -> COLLECT -> SEND -> SENT -> COMPLETE -> TERMINATE 과정을 거친다.
 	 * 
 	 * @param message 메시지
 	 */
-	def draft(GmsMessage message){
+	def submit(GmsMessage message){
 		def instance = Eval.me(grailsApplication.config.gms.instance)
 		def gmsInstance = GmsInstance.get(instance)
 		
@@ -405,18 +407,31 @@ class GmsMessageService {
 			message.senderRegistrationId = sender.registrationId
 			message.senderEmail = sender.email
 		}
-		def (offset, end, recipientCount) = GmsUser.createCriteria().get{
-												projections {
-													min('id')
-													max('id')
-													rowCount()
-												}
-												sqlRestriction(message.recipientFilter)
+		if(message.recipientUserId != null){
+			message.recipientFilter = "user_id='${message.recipientUserId}'"
+		}else{
+			if(message.recipientFilter == null) message.recipientFilter = '1=1'  // 모든 사용자를 의미함
+		}
+		def (offset, end, recipientCount) = [0,0,0]
+		(offset, end, recipientCount) = GmsUser.createCriteria().get{
+											projections {
+												min('id')
+												max('id')
+												rowCount()
 											}
+											sqlRestriction(message.recipientFilter)
+										}
+		// 수신자가 없으면 발송실패 처리
+		if(recipientCount == 0){
+			message.isFailed = true
+			message.error = 'No recipients'
+			message.save()
+			return message.error
+		}
 		message.recipientCount = recipientCount
 		// 메시지 수신자의 수가 queueSize(1채널이 1회에 보낼수 있는 최대 메시지 수)보다 크면 대량메시지로 설정
-		if(recipientCount >= gmsInstance.queueSize) message.isBulk = true 
-		new GmsQueueDraft(message: message, offset: offset?:0, end: end?:0, recipientCount: recipientCount).save()
+		if(recipientCount >= gmsInstance.queueSize) message.isBulk = true
+		new GmsQueueSubmit(message: message, offset: offset?:0, end: end?:0, recipientCount: recipientCount).save()
 	}
 	
 	/**
@@ -429,13 +444,14 @@ class GmsMessageService {
 	 * @param queueSize 메시지 할당크기
 	 */
 	def distribute(int instanceId, Range channels, int queueSize){
-		def queues = GmsQueueDraft.where{message.reservationTime <= new Date()}.list(max:queueSize, sort:'id', order:'asc')
+		def instances = GmsInstance.where{isRunning == true}.list(sort:'id', order:'asc')
+		
+		def queues = GmsQueueSubmit.where{message.reservationTime <= new Date()}.list(max:queueSize, sort:'id', order:'asc')
 		queues.each{ queue ->
 			def message = queue.message
 			def prevQueue = new GmsQueuePublish(instance: instanceId, message: message, offset: queue.offset, end: queue.end, recipientCount: queue.recipientCount).save()
 			// 대량메시지는 Publish에 많은 시간이 소요되므로 모든 Instance에 본배한다.
 			if(queue.recipientCount > queueSize){
-				def instances = GmsInstance.where{isRunning == true}.list(sort:'id', order:'asc')
 				int offset = queue.offset
 				0.step(queue.recipientCount, queueSize*instances.size()-1) { step ->
 					boolean hasNext = true
@@ -487,6 +503,8 @@ class GmsMessageService {
 		queues += GmsQueuePublish.where{instance == instanceId && message.isBulk == true}.list(max:channels.size(), sort:'id', order:'asc')
 		queues.each { queue ->
 			def message = queue.message
+			def subjectTemplate = templateEngine.createTemplate(message.subject)
+			def contentTemplate = templateEngine.createTemplate(message.content)
 			def users = GmsUser.createCriteria().list{
 				sqlRestriction(message.recipientFilter + " AND id >= ${queue.offset}")
 				maxResults(queueSize)
@@ -494,18 +512,19 @@ class GmsMessageService {
 			}
 			def (offset, end) = [0, 0]
 			users.eachWithIndex { user, index ->
+				def binding = getBinding(user)
 				def recipient = new GmsMessageRecipient(message: message,
 														userId: user.userId,
 														name: user.name,
 														phoneNumber: user.phoneNumber,
 														registrationId: user.registrationId,
 														email: user.email,
-														subject: message.subject,
-														content: message.content
+														subject: subjectTemplate.make(binding).toString(),
+														content: contentTemplate.make(binding).toString()
 														)
 				if(message.sendPolicy in SendType.values()){
 					recipient.sendType = message.sendPolicy
-				}else if(message.sendPolicy in [SendPolicy.COMPLEX, SendPolicy.ADVENCED]){
+				}else if(message.sendPolicy in [SendPolicy.ADVENCED]){
 					if(user.registrationId == null) recipient.sendType = SendType.SMS
 					else if(user.phoneNumber == null) recipient.sendType = SendType.EMAIL
 				}
@@ -518,6 +537,14 @@ class GmsMessageService {
 			queue.delete()
 			log.info "Published (Instance: #${instanceId}): (Message: #${message.id}) ${users.size()} recipients"
 		}
+	}
+	
+	def private getBinding(GmsUser user){
+		return [userId: user.userId, 
+				name: user.name, 
+				phoneNumber: user.phoneNumber, 
+				email: user.email
+				]
 	}
 	
 	/**

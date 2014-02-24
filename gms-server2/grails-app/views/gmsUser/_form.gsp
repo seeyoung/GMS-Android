@@ -31,6 +31,14 @@
 	</label>
 	<g:textArea name="registrationId" value="${gmsUserInstance?.registrationId}" rows="5" cols="40"/>
 </div>
+
+<div class="fieldcontain ${hasErrors(bean: gmsUserInstance, field: 'email', 'error')} required">
+	<label for="email">
+		<g:message code="gmsUser.email.label" default="Email" />
+		<span class="required-indicator">*</span>
+	</label>
+	<g:textField name="email" value="${gmsUserInstance?.email}"/>
+</div>
  
 <div class="fieldcontain ${hasErrors(bean: gmsUserInstance, field: 'isSendable', 'error')} required">
 	<label for="isSendable">

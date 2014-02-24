@@ -46,9 +46,7 @@
 					
 						<g:sortableColumn property="name" title="${message(code: 'gmsUserGroup.name.label', default: 'Group Name')}" />
 					
-						<g:sortableColumn property="enabled" title="${message(code: 'gmsUserGroup.enabled.label', default: 'Enabled')}" />
-					
-						<g:sortableColumn property="memberCount" title="${message(code: 'gmsUserGroup.members.label', default: 'Members')}" />
+						<g:sortableColumn property="filter" title="${message(code: 'gmsUserGroup.filter.label', default: 'Filter')}" />
 					
 						<g:sortableColumn property="modifiedTime" title="${message(code: 'gmsUserGroup.modifiedTime.label', default: 'Modified Time')}" />
 					
@@ -62,9 +60,7 @@
 					
 						<td><g:link action="show" id="${gmsUserGroupInstance.id}">${fieldValue(bean: gmsUserGroupInstance, field: "name")}</g:link></td>
 					
-						<td style="text-align:center"><g:checkBox name="enabled" value="${gmsUserGroupInstance.enabled}" disabled="disabled" /></td>
-					
-						<td style="text-align:center">${gmsUserGroupInstance.members.size()}</td>
+						<td>${fieldValue(bean: gmsUserGroupInstance, field: "filter")}</td>
 
 						<td><g:formatDate date="${gmsUserGroupInstance.createdTime}" format="MM/dd HH:mm:ss" /></td>
 					

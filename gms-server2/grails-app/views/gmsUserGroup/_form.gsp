@@ -9,10 +9,10 @@
 	<g:textField name="name" value="${gmsUserGroupInstance?.name}"/>
 </div>
 
-<div class="fieldcontain ${hasErrors(bean: gmsUserGroupInstance, field: 'enabled', 'error')} required">
-	<label for="enabled">
-		<g:message code="gmsUserGroup.enabled.label" default="Enabled" />
+<div class="fieldcontain ${hasErrors(bean: gmsUserGroupInstance, field: 'filter', 'error')} required">
+	<label for="filter">
+		<g:message code="gmsUserGroup.filter.label" default="Filter" />
 		<span class="required-indicator">*</span>
 	</label>
-	<g:checkBox name="enabled" value="${gmsUserGroupInstance?.enabled}" />
+	<g:textField name="filter" value="${gmsUserGroupInstance?.filter}"/>
 </div>

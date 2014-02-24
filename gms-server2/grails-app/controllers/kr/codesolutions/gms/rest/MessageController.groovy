@@ -2,7 +2,6 @@ package kr.codesolutions.gms.rest
 
 import static org.springframework.http.HttpStatus.*
 import grails.transaction.Transactional
-import kr.codesolutions.gms.GmsMassMessage
 import kr.codesolutions.gms.GmsMessage
 import kr.codesolutions.gms.GmsMessageRecipient
 import kr.codesolutions.gms.GmsUser
@@ -11,7 +10,6 @@ import kr.codesolutions.gms.GmsUser
 class MessageController {
 
 	def gmsMessageService
-	def gmsMassMessageService
 	
 	def beforeInterceptor = {
 		log.info params
@@ -32,13 +30,13 @@ class MessageController {
 				return
 			}
 			gmsMessageService.read(gmsMessageInstance, gmsMessageRecipientInstance)
-		}else if(params.ownType == '1'){ // 공지메시지
-			def gmsMassMessageInstance = GmsMassMessage.get(params.id)
-			if (gmsMassMessageInstance == null) {
-				notFound()
-				return
-			}
-			gmsMassMessageService.read(gmsMassMessageInstance)
+//		}else if(params.ownType == '1'){ // 공지메시지
+//			def gmsMassMessageInstance = GmsMassMessage.get(params.id)
+//			if (gmsMassMessageInstance == null) {
+//				notFound()
+//				return
+//			}
+//			gmsMassMessageService.read(gmsMassMessageInstance)
 		}
 		
         request.withFormat {
