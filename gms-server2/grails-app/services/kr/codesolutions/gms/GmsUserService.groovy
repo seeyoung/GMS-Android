@@ -44,28 +44,9 @@ class GmsUserService {
 	}
 
 	def GmsUser delete(GmsUser gmsUserInstance) {
-		// User가 포함된 그룹에서 User를 제거한다.
-		def criteria = new DetachedCriteria(GmsUserGroup).build{
-			members {
-				eq ('id',gmsUserInstance.id)
-			}
-		}
-		def gmsUserGroupInstanceList = criteria.list()
-		gmsUserGroupInstanceList.each{ gmsUserGroupInstance ->
-			gmsUserGroupInstance.removeFromMembers(gmsUserInstance)
-			gmsUserGroupInstance.save()
-		}
 
-		def gmsMessageInBoxCriteria = new DetachedCriteria(GmsBoxIn).build{
-			eq ('owner', gmsUserInstance)
-		}
-		gmsMessageInBoxCriteria.deleteAll()
-
-		def gmsMessageOutBoxCriteria = new DetachedCriteria(GmsBoxOut).build{
-			eq ('owner', gmsUserInstance)
-		}
-		gmsMessageOutBoxCriteria.deleteAll()
-		
+		GmsBoxIn.where{owner == gmsUserInstance}.deleteAll()
+		GmsBoxOut.where{owner == gmsUserInstance}.deleteAll()
 		gmsUserInstance.delete flush:true
 		
 		return gmsUserInstance

@@ -12,7 +12,7 @@ class GmsInstance {
 	byte instanceId = 1 // 서버 Instance 번호
 	boolean autoStart = true // 메시지 작업 자동시작
 	boolean isRunning = true // Instance가 가동중인지 여부 
-	String channels = '1..10' // 전송채널 범위 1..20 범위내 (예:1..5 -> 1,2,3,4,5  5개 채널로 전송작업 동시진행)
+	String channels = '1..1' // 전송채널 범위 1..20 범위내 (예:1..5 -> 1,2,3,4,5  5개 채널로 전송작업 동시진행)
 	Range getChannelRange(){ Eval.me(channels) }
 	int queueSize = 100 // 전송단위(예:100  1개 채널이 1회에 100개씩 전송)
 	int distributeIntervalSeconds = 10 // 메시지 Instance분배 주기(초)(예:10 -> 10초)

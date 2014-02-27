@@ -107,8 +107,7 @@
 			<h1>Push 서비스 관리</h1>
 			<ul>
 				<li>> <g:link controller="GmsMessage" action="create"><g:message code="default.menu.message.label" default="Compose"/></g:link></li>
-				<li>> <g:link controller="GmsMessageOutBox"><g:message code="default.menu.messageOutBox.label" default="Sents"/></g:link></li>
-				<!-- li>> <g:link controller="GmsMessageInBox" params="[userId:'admin']"><g:message code="default.menu.messageInBox.label" default="In Box"/></g:link></li> -->
+				<li>> <g:link controller="GmsMessage"><g:message code="default.menu.boxOut.label" default="Sents"/></g:link></li>
 				<li>> <g:link controller="GmsUser"><g:message code="default.menu.user.label" default="Users"/></g:link></li>
 				<li>> <g:link controller="GmsUserGroup"><g:message code="default.menu.group.lable" default="Groups"/></g:link></li>
 			</ul>

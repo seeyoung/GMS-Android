@@ -1,7 +1,5 @@
 package kr.codesolutions.gms
 
-
-
 import static org.springframework.http.HttpStatus.*
 import grails.gorm.DetachedCriteria
 import grails.transaction.Transactional
@@ -33,23 +31,27 @@ class GmsMessageController {
         respond new GmsMessage(params)
     }
 
-    def searchUser(UserSearchCommand cmd, Integer max) {
-        params.max = Math.min(max ?: 10, 100)
-		def result = gmsMessageService.listUser(cmd, params)
-        respond result.list, model:[gmsUserInstanceCount: result.totalCount]
-    }
-
+//    def searchUser(UserSearchCommand cmd, Integer max) {
+//        params.max = Math.min(max ?: 10, 100)
+//		def result = gmsMessageService.listUser(cmd, params)
+//        respond result.list, model:[gmsUserInstanceCount: result.totalCount]
+//    }
+//
     @Transactional
     def save(GmsMessage gmsMessageInstance) {
         if (gmsMessageInstance == null) {
             notFound()
             return
         }
-		
-		gmsMessageInstance = gmsMessageService.create(gmsMessageInstance, params)
 		if (gmsMessageInstance.hasErrors()) {
-			respond gmsMessageInstance.errors, view:'create'
-			return
+            respond gmsMessageInstance.errors, view:'create'
+            return
+		}
+		gmsMessageInstance = gmsMessageService.submit(gmsMessageInstance)
+		if (gmsMessageInstance.isFailed) {
+			flash.message = gmsMessageInstance.error
+            respond gmsMessageInstance.errors, view:'create'
+            return
 		}
 
         request.withFormat {

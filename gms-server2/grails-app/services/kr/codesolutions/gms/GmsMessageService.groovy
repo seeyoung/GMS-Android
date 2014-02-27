@@ -1,5 +1,6 @@
 package kr.codesolutions.gms
 
+import grails.gorm.DetachedCriteria
 import grails.transaction.Transactional
 import grails.util.Environment
 import groovy.sql.Sql
@@ -11,6 +12,7 @@ import kr.codesolutions.gms.constants.SendType
 
 import org.hibernate.Session
 import org.hibernate.SessionFactory
+import org.springframework.transaction.UnexpectedRollbackException
 import org.springframework.transaction.annotation.Propagation
 
 import com.google.android.gcm.server.Message
@@ -35,77 +37,82 @@ class GmsMessageService {
 		propertyInstanceMap.get().clear()
 	}
 
-//	def Map listUser(UserSearchCommand cmd, Map params) {
-//		def criteria = new DetachedCriteria(GmsUser).build{
-//			and {
-//				like ('userId', cmd.userId)
-//				like ('name', cmd.name)
-//				like ('phoneNumber', cmd.phoneNumber)
-//				eq ('enabled', true)
-//			}
+	def Map listUser(UserSearchCommand cmd, Map params) {
+		def criteria = new DetachedCriteria(GmsUser).build{
+			and {
+				like ('userId', cmd.userId)
+				like ('name', cmd.name)
+				like ('phoneNumber', cmd.phoneNumber)
+				eq ('enabled', true)
+			}
+		}
+		def totalCount = criteria.count()
+		def list = criteria.list(params)
+		
+		return [list: list, totalCount: totalCount]
+	}
+	
+	def GmsMessage create(GmsMessage gmsMessageInstance, Map params) {
+		params.senderId = params.senderId?:'gmsmaster'
+		def sender = GmsUser.findByUserId(params.senderId)
+		if(sender != null){
+			gmsMessageInstance.senderUserId = sender.userId
+			gmsMessageInstance.senderName = sender.name
+			gmsMessageInstance.senderPhoneNumber = sender.phoneNumber
+			gmsMessageInstance.senderRegistrationId = sender.registrationId
+			gmsMessageInstance.senderEmail = sender.email
+		}
+		gmsMessageInstance.validate()
+		if (gmsMessageInstance.hasErrors()) {
+			return gmsMessageInstance
+		}
+		gmsMessageInstance.save()
+		
+		// 메시지 수신자 저장
+		if(params.recipientGroup != null && !params.recipientGroup.empty){
+			def gmsUserGroupInstance = GmsUserGroup.get(params.recipientGroup)
+			if(gmsUserGroupInstance != null){
+				gmsMessageInstance.recipientFilter = gmsUserGroupInstance.filter
+			}
+		}
+		if(params.recipientId != null && !params.recipientId.empty){
+			params.recipientId.replaceAll(';',"','").each { userId ->
+				def gmsUserInstance = GmsUser.findByUserId(userId)
+				if(gmsUserInstance){
+					createRecipient(gmsMessageInstance, gmsUserInstance)
+				}
+			}
+		}
+		if(gmsMessageInstance.recipients == null) {
+			throw new UnexpectedRollbackException("recipients is empty")
+		}
+
+		// 예약시간이 있으면 예약메시지함으로 저장(스케쥴러가 예약시간을 확인하여 발송한다)
+		// 그외의 메시지는 발송대기함으로 저장(스케쥴러가 즉시 발송한다)
+//		if(gmsMessageInstance.reservationTime){
+//			new GmsMessageReserveBox(message:gmsMessageInstance).save flush:true
+//		}else{
+//			new GmsMessageWaitingBox(message:gmsMessageInstance).save flush:true
 //		}
-//		def totalCount = criteria.count()
-//		def list = criteria.list(params)
-//		
-//		return [list: list, totalCount: totalCount]
-//	}
-//	
-//	def GmsMessage create(GmsMessage gmsMessageInstance, Map params) {
-//		params.senderId = params.senderId?:'gmsmaster'
-//		gmsMessageInstance.sender = GmsUser.findByUserId(params.senderId)
-//		gmsMessageInstance.owner = gmsMessageInstance.sender
-//		gmsMessageInstance.sendPolicy = 'ADVENCED'
-//		gmsMessageInstance.validate()
-//		if (gmsMessageInstance.hasErrors()) {
-//			return gmsMessageInstance
-//		}
-//		gmsMessageInstance.save()
-//		
-//		// 메시지 수신자 저장
-//		if(params.recipientGroup != null && !params.recipientGroup.empty){
-//			def gmsUserGroupInstance = GmsUserGroup.get(params.recipientGroup)
-//			if(gmsUserGroupInstance){
-//				gmsUserGroupInstance?.members.each { gmsUserInstance -> createRecipient(gmsMessageInstance, gmsUserInstance)}
-//			}
-//		}
-//		if(params.recipientId != null && !params.recipientId.empty){
-//			params.recipientId.split(';').each { userId ->
-//				def gmsUserInstance = GmsUser.findByUserId(userId)
-//				if(gmsUserInstance){
-//					createRecipient(gmsMessageInstance, gmsUserInstance)
-//				}
-//			}
-//		}
-//		if(gmsMessageInstance.recipients == null) {
-//			throw new UnexpectedRollbackException("recipients is empty")
-//		}
-//
-//		// 예약시간이 있으면 예약메시지함으로 저장(스케쥴러가 예약시간을 확인하여 발송한다)
-//		// 그외의 메시지는 발송대기함으로 저장(스케쥴러가 즉시 발송한다)
-////		if(gmsMessageInstance.reservationTime){
-////			new GmsMessageReserveBox(message:gmsMessageInstance).save flush:true
-////		}else{
-////			new GmsMessageWaitingBox(message:gmsMessageInstance).save flush:true
-////		}
-//		// 모든 메시지는 보낸메시지함에도 보관한다
-//		new GmsBoxOut(owner:gmsMessageInstance.owner, message:gmsMessageInstance).save flush:true
-//		
-//		return gmsMessageInstance
-//	}
-//	
-//	def createRecipient(GmsMessage gmsMessageInstance, GmsUser gmsUserInstance){
-//		def gmsMessageRecipientInstance =
-//			new GmsMessageRecipient(userId: gmsUserInstance.userId,
-//									name: gmsUserInstance.name,
-//									phoneNumber: gmsUserInstance.phoneNumber,
-//									registrationId: gmsUserInstance.registrationId,
-//									message: gmsMessageInstance).save()
-//		gmsMessageInstance.addToRecipients(gmsMessageRecipientInstance)
-////		new GmsMessageInBox(owner: gmsUserInstance,
-////							message: gmsMessageInstance).save()
-//
-//	}
-//	
+		// 모든 메시지는 보낸메시지함에도 보관한다
+		new GmsBoxOut(owner:gmsMessageInstance.owner, message:gmsMessageInstance).save flush:true
+		
+		return gmsMessageInstance
+	}
+	
+	def createRecipient(GmsMessage gmsMessageInstance, GmsUser gmsUserInstance){
+		def gmsMessageRecipientInstance =
+			new GmsMessageRecipient(userId: gmsUserInstance.userId,
+									name: gmsUserInstance.name,
+									phoneNumber: gmsUserInstance.phoneNumber,
+									registrationId: gmsUserInstance.registrationId,
+									message: gmsMessageInstance).save()
+		gmsMessageInstance.addToRecipients(gmsMessageRecipientInstance)
+//		new GmsMessageInBox(owner: gmsUserInstance,
+//							message: gmsMessageInstance).save()
+
+	}
+	
 //	def GmsMessage read(GmsMessage gmsMessageInstance, GmsMessageRecipient gmsMessageRecipientInstance){
 //		if(!gmsMessageRecipientInstance.isRead){
 //			gmsMessageRecipientInstance.isRead = true
@@ -229,114 +236,6 @@ class GmsMessageService {
 //		gmsMessageRecipientInstance.save()
 //	}
 //
-//	// SMS메시지를 모든 수신자에게 전송
-//	def sendSMS(GmsMessage gmsMessageInstance) {
-//		gmsMessageInstance.recipients.each{ recipient ->
-//			sendSMS(gmsMessageInstance.content, gmsMessageInstance.sender, recipient)
-//		}
-//    }
-//	
-//	// SMS메시지를 수신자 1명에게 전송
-//	def sendSMS(String messageContent, GmsUser sender, GmsMessageRecipient gmsMessageRecipientInstance) {
-//		gmsMessageRecipientInstance.isSent = true
-//		gmsMessageRecipientInstance.sendType = 'SMS'
-//		gmsMessageRecipientInstance.save()
-//	}
-//
-//	/**
-//	 * 발송대기메시지를 발송메시지함으로 이동한다.
-//	 * 
-//	 * @param instance 서버 Instance번호
-//	 * @return
-//	 */
-//	def sendWaitingMessage(int instance) {
-//		def results = GmsMessageWaitingBox.list(sort:'createdTime', order:'asc')
-//		if(results != null){
-//			results.each { box ->
-//				if(!box.isDirty()){
-//					log.info "message ${box.message.id} is moved to sendingbox."
-////					new GmsMessageSendingBox(message:box.message).save flush:true
-//					box.delete flush:true
-//				}
-//			}
-//		}
-//	}
-//	
-//	/**
-//	 * 발송예약시간을 초과한 예약메시지를 발송대기메시지함으로 이동한다.
-//	 * 
-//	 * @param instance 서버 Instance번호
-//	 * @return
-//	 */
-//	def sendReservedMessage(int instance) {
-//		def criteria = new DetachedCriteria(GmsMessageReserveBox).build{
-//							message{
-//								lt('reservationTime', new Date())
-//							}
-//		}
-//		def results = criteria.list(sort:'createdTime', order:'asc')
-//		if(results != null){
-//			results.each { box ->
-//				if(!box.isDirty()){
-//					log.info "message ${box.message.id} is moved to waitingbox."
-////					new GmsMessageWaitingBox(message:box.message).save flush:true
-//					box.delete flush:true
-//				}
-//			}
-//		}
-//	}
-//	
-//	/**
-//	 * 발송메시지함에서 가장먼저 들어온 메시지 하나만 발송한다. 
-//	 * 
-//	 * @param instance 서버 Instance번호
-//	 * @return
-//	 */
-//	def sendMessage(int instance) {
-//		def results = GmsMessageSendingBox.list(sort:'createdTime', order:'asc')
-//		if(results != null){
-//			results.each { box ->
-//				if(!box.isDirty()){
-//					send(box.message)
-//					log.info "message ${box.message.id} is sent."
-//					if(box.message.sendPolicy == 'ADVENCED'){
-//						log.info "message ${box.message.id} is moved to resendBox."
-////						new GmsMessageResendBox(message:box.message).save flush:true
-//					}else{
-//						log.info "message ${box.message.id} is moved to sentBox."
-//						new GmsBoxSent(message:box.message).save flush:true
-//					}
-//					box.delete flush:true
-//				}
-//			}
-//		}
-//	}
-//	
-//	/**
-//	 * 재발송이 필요한 메시지를 제외하고 완료메시지함으로 이동한다.
-//	 * 
-//	 * @param instance 서버 Instance번호
-//	 * @return
-//	 */
-//	def completeMessage(int instance) {
-//		def results = GmsBoxSent.list(sort:'createdTime', order:'asc')
-//		if(results != null){
-//			results.each { box ->
-//				if(!box.isDirty()){
-//					// 발신오류가 발생한 수신자의 errorCount를 증가시킨다. errorCount가 3이상이면 사용불가
-//					def gcmRecipients = box.message.recipients.grep{it.error != null}
-//					gcmRecipients.each{ gmsMessageRecipientInstance ->
-//						def gmsUserInstance = GmsUser.findByUserId(gmsMessageRecipientInstance.userId)
-//						gmsUserInstance.errorCount++
-//						gmsUserInstance.save()
-//					}
-//					log.info "message ${box.message.id} is moved to completeBox."
-//					new GmsBoxComplete(message:box.message).save flush:true
-//					box.delete flush:true
-//				}
-//			}
-//		}
-//	}
 //
 //	/**
 //	 * 재발송이 필요한 메시지를 SMS발송하고 완료메시지함으로 이동한다.
@@ -365,28 +264,6 @@ class GmsMessageService {
 //		}
 //	}
 //	
-//	/**
-//	 * 관리기간이 종료된 메시지를 종결메시지함으로 이동한다.
-//	 * 
-//	 * @param instance 서버 Instance번호
-//	 * @param terminatePendingDays 관리기간
-//	 * @return
-//	 */
-//	def terminateMessage(int instance, int terminatePendingDays) {
-//		def criteria = new DetachedCriteria(GmsBoxComplete).build{
-//							lt('createdTime', use(TimeCategory) { new Date() - terminatePendingDays.days})
-//		}
-//		def results = criteria.list(sort:'createdTime', order:'asc')
-//		if(results != null){
-//			results.each { box ->
-//				if(!box.isDirty()){
-//					log.info "message ${box.message.id} is moved to terminateBox."
-//					new GmsBoxTerminate(message:box.message).save flush:true
-//					box.delete flush:true
-//				}
-//			}
-//		}
-//	}
 
 	
 	
@@ -401,17 +278,22 @@ class GmsMessageService {
 		def gmsInstance = GmsInstance.get(instance)
 		
 		def sender = GmsUser.findByUserId(message.senderUserId)
-		if(sender != null){
-			message.senderName = sender.name
-			message.senderPhoneNumber = sender.phoneNumber
-			message.senderRegistrationId = sender.registrationId
-			message.senderEmail = sender.email
+		if(sender == null){
+			message.isFailed = true
+			message.error = 'Invalid sender'
+			return message
 		}
-		if(message.recipientUserId != null){
+		message.senderName = sender.name
+		message.senderPhoneNumber = sender.phoneNumber
+		message.senderRegistrationId = sender.registrationId
+		message.senderEmail = sender.email
+		if(message.recipientGroup != null){
+			message.recipientFilter = message.recipientGroup.filter
+		}else if(message.recipientUserId != null){
 			message.recipientFilter = "user_id='${message.recipientUserId}'"
-		}else{
-			if(message.recipientFilter == null) message.recipientFilter = '1=1'  // 모든 사용자를 의미함
 		}
+		if(message.recipientFilter == null) message.recipientFilter = '1=1'  // 모든 사용자를 의미함
+		
 		def (offset, end, recipientCount) = [0,0,0]
 		(offset, end, recipientCount) = GmsUser.createCriteria().get{
 											projections {
@@ -425,13 +307,17 @@ class GmsMessageService {
 		if(recipientCount == 0){
 			message.isFailed = true
 			message.error = 'No recipients'
-			message.save()
-			return message.error
+			return message
 		}
 		message.recipientCount = recipientCount
 		// 메시지 수신자의 수가 queueSize(1채널이 1회에 보낼수 있는 최대 메시지 수)보다 크면 대량메시지로 설정
 		if(recipientCount >= gmsInstance.queueSize) message.isBulk = true
+		message.save()
+		// 발송요청
 		new GmsQueueSubmit(message: message, offset: offset?:0, end: end?:0, recipientCount: recipientCount).save()
+		// 보낸메시지함에 보관
+		new GmsBoxOut(owner: sender, message: message).save()
+		return message
 	}
 	
 	/**
@@ -512,7 +398,7 @@ class GmsMessageService {
 			}
 			def (offset, end) = [0, 0]
 			users.eachWithIndex { user, index ->
-				def binding = getBinding(user)
+				def binding = user.properties
 				def recipient = new GmsMessageRecipient(message: message,
 														userId: user.userId,
 														name: user.name,
@@ -537,14 +423,6 @@ class GmsMessageService {
 			queue.delete()
 			log.info "Published (Instance: #${instanceId}): (Message: #${message.id}) ${users.size()} recipients"
 		}
-	}
-	
-	def private getBinding(GmsUser user){
-		return [userId: user.userId, 
-				name: user.name, 
-				phoneNumber: user.phoneNumber, 
-				email: user.email
-				]
 	}
 	
 	/**
@@ -583,8 +461,16 @@ class GmsMessageService {
 								(id >= queue.offset && id <= queue.end)
 							}.list(sort:'id', order:'asc')
 							
+			def message = queue.message
+			if(message.status == MessageStatus.WAITING){
+				message.status = MessageStatus.SENDING
+				message.save()
+			}
+	
 			recipients.eachWithIndex{ recipient, idx ->
-				new GmsQueueSend(instance: instanceId, channel: channelId, message: queue.message, recipient: recipient).save()
+				recipient.status = MessageStatus.SENDING
+				recipient.save()
+				new GmsQueueSend(instance: instanceId, channel: channelId, message: message, recipient: recipient).save()
 				if(idx % 100 == 0) cleanUpGorm()
 			}
 			queue.delete()
@@ -703,14 +589,13 @@ class GmsMessageService {
 			createLogTable(sql, sourceTable, targetTable)
 			
 			def criteria = GmsMessage.where{ status == MessageStatus.COMPLETED && lastEventTime <= terminateDate }
-			if(criteria.find() != null){
-				def (terminated, moved, deleted) = [0, 0, 0]
-				terminated = criteria.updateAll(status: MessageStatus.TERMINATED, terminatedTime: new Date())
-				if(terminated > 0){
-					moved = sql.executeUpdate("INSERT INTO ${Sql.expand(targetTable)} SELECT * FROM ${Sql.expand(sourceTable)} WHERE status = 'TERMINATED'")
-					deleted =  sql.executeUpdate("DELETE FROM ${Sql.expand(sourceTable)} WHERE status = 'TERMINATED'")
-					log.info "Terminated (Intance: #${instanceId}, terminateDate: ${terminateDate}): ${terminated} messages terminated, ${moved} moved to Log, ${deleted} deleted"
-				}
+			def (terminated, moved, deleted) = [0, 0, 0]
+			terminated = criteria.updateAll(status: MessageStatus.TERMINATED, terminatedTime: new Date())
+			if(terminated > 0){
+				moved = sql.executeUpdate("INSERT INTO ${Sql.expand(targetTable)} SELECT * FROM ${Sql.expand(sourceTable)} WHERE status = 'TERMINATED'")
+				sql.executeUpdate("DELETE FROM gms_box_out WHERE message_id IN(SELECT id FROM ${Sql.expand(sourceTable)} WHERE status = 'TERMINATED')")
+				deleted =  sql.executeUpdate("DELETE FROM ${Sql.expand(sourceTable)} WHERE status = 'TERMINATED'")
+				log.info "Terminated (Intance: #${instanceId}, terminateDate: ${terminateDate}): ${terminated} messages terminated, ${moved} moved to Log, ${deleted} deleted"
 			}
 		}
 	}
@@ -731,14 +616,13 @@ class GmsMessageService {
 			createLogTable(sql, sourceTable, targetTable)
 			
 			def criteria = GmsMessageRecipient.where{ status == MessageStatus.COMPLETED && lastEventTime <= terminateDate }
-			if(criteria.find() != null){
-				def (terminated, moved, deleted) = [0, 0, 0]
-				terminated = criteria.updateAll(status: MessageStatus.TERMINATED, terminatedTime: new Date())
-				if(terminated > 0){
-					moved = sql.executeUpdate("INSERT INTO ${Sql.expand(targetTable)} SELECT * FROM ${Sql.expand(sourceTable)} WHERE status = 'TERMINATED'")
-					deleted =  sql.executeUpdate("DELETE FROM ${Sql.expand(sourceTable)} WHERE status = 'TERMINATED'")
-					log.info "Terminated (Intance: #${instanceId}, terminateDate: ${terminateDate}): ${terminated} messages terminated, ${moved} moved to Log, ${deleted} deleted"
-				}
+			def (terminated, moved, deleted) = [0, 0, 0]
+			terminated = criteria.updateAll(status: MessageStatus.TERMINATED, terminatedTime: new Date())
+			if(terminated > 0){
+				moved = sql.executeUpdate("INSERT INTO ${Sql.expand(targetTable)} SELECT * FROM ${Sql.expand(sourceTable)} WHERE status = 'TERMINATED'")
+				sql.executeUpdate("DELETE FROM gms_box_in WHERE recipient_id IN(SELECT id FROM ${Sql.expand(sourceTable)} WHERE status = 'TERMINATED')")
+				deleted =  sql.executeUpdate("DELETE FROM ${Sql.expand(sourceTable)} WHERE status = 'TERMINATED'")
+				log.info "Terminated (Intance: #${instanceId}, terminateDate: ${terminateDate}): ${terminated} messages terminated, ${moved} moved to Log, ${deleted} deleted"
 			}
 		}
 	}

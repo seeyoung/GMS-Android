@@ -29,23 +29,26 @@ class GmsMessage {
 	String senderRegistrationId
 	String senderEmail
 	String recipientUserId
+	GmsUserGroup recipientGroup
 	String recipientFilter
 	int recipientCount = 0
 	int failedCount = 0
 	int sentCount = 0
 	
+	boolean isSent = false
+	Date sentTime
+	boolean isRead = false
+	Date readTime
+	boolean isFailed = false
+	Date failedTime
+	
 	Date draftTime = new Date()
+	Date submitTime
 	Date publishTime
 	Date waitTime
 	Date sendTime
-	Date failedTime
-	Date sentTime
-	Date readTime
 	Date completedTime
 	Date terminatedTime
-	boolean isFailed = false
-	boolean isSent = false
-	boolean isRead = false
 	
 	String error
 
@@ -56,6 +59,7 @@ class GmsMessage {
 	static constraints = {
 		subject blank: false, maxSize: 255
 		content blank: false, maxSize: 2000
+		reservationTime nullable: true
 		sendPolicy blank: false, maxSize: 10
 		status blank: false, maxSize: 10
 		senderUserId blank: false, maxSize: 50
@@ -64,27 +68,30 @@ class GmsMessage {
 		senderRegistrationId nullable: true, maxSize: 255
 		senderEmail nullable: true, maxSize: 50
 		recipientUserId nullable: true, maxSize: 50
+		recipientGroup nullable: true
 		recipientFilter nullable: true, maxSize: 255
+		sentTime nullable: true
+		readTime nullable: true
+		failedTime nullable: true
 		draftTime nullable: true
+		submitTime nullable: true
 		publishTime nullable: true
 		waitTime nullable: true
 		sendTime nullable: true
-		failedTime nullable: true
-		sentTime nullable: true
 		completedTime nullable: true
-		readTime nullable: true
 		terminatedTime nullable: true
 		error nullable: true, maxSize: 255
 	}
 	
 	def beforeInsert() {
+		if(reservationTime == null) reservationTime = new Date()
 	}
 	
 	def beforeUpdate() {
 		modifiedTime = new Date()
 		lastEventTime = modifiedTime.format('yyyyMMddHHmmss')
 		
-		if (isDirty('failedCount') && isDirty('sentCount')) {
+		if (isDirty('failedCount') || isDirty('sentCount')) {
 			if(failedCount >= recipientCount){
 				isFailed = true
 			}else if(failedCount + sentCount >= recipientCount){
@@ -105,6 +112,7 @@ class GmsMessage {
 		if (isDirty('status')) {
 			switch(status){
 				case MessageStatus.DRAFT: draftTime = new Date(); break
+				case MessageStatus.SUBMIT: submitTime = new Date(); break
 				case MessageStatus.PUBLISHING: publishTime = new Date(); break
 				case MessageStatus.WAITING: waitTime = new Date(); break
 				case MessageStatus.SENDING: sendTime = new Date(); break

@@ -1,16 +1,12 @@
 <%@ page import="kr.codesolutions.gms.GmsMessage" %>
 
-<g:hiddenField name="userId" value="admin"/>
-
-<div class="fieldcontain ${hasErrors(bean: gmsMessageInstance, field: 'recipients', 'error')} required">
-	<label for="recipients">
-		<g:message code="gmsMessage.recipients.label" default="Recipients" />
+<div class="fieldcontain ${hasErrors(bean: gmsMessageInstance, field: 'recipientGroup', 'error')} required">
+	<label for="recipientGroup">
+		<g:message code="gmsMessage.recipientGroup.label" default="Recipient Group" />
 		<span class="required-indicator">*</span>
 	</label>
 	
-	<g:select name="recipientGroup" from="${kr.codesolutions.gms.GmsUserGroup.findAll{members.size() > 0 && enabled == true}}" optionKey="id" optionValue="name" noSelection="['':'']" class="many-to-one"/>
-	<g:textField name="recipientId" value="${gmsMessageInstance?.recipients*.userId}" onKeyDown="return false;"/>
-	<a id="buttonSearch" class="buttons add" href="javascript:openSearchWindow('${createLink(action:'searchUser')}','SearchWindow');"><g:message code="default.button.add.label" default="Add" /></a>
+	<g:select name="recipientGroup" from="${kr.codesolutions.gms.GmsUserGroup.list(sort:'name')}" optionKey="id" optionValue="name" class="many-to-one"/>
 
 </div>
 
@@ -20,7 +16,7 @@
 		<span class="required-indicator">*</span>
 	</label>
 	
-	<g:select name="senderId" from="${kr.codesolutions.gms.GmsUser.findAllByIsSendable(true)}" optionKey="userId" optionValue="name" required="" value="${gmsMessageInstance?.sender?.userId}" class="many-to-one"/>
+	<g:textField name="senderUserId" value="${gmsMessageInstance?.senderUserId}"/>
 
 </div>
 
@@ -38,6 +34,16 @@
 		<span class="required-indicator">*</span>
 	</label>
 	<g:textArea name="content" value="${gmsMessageInstance?.content}" rows="5" cols="40"/>
+</div>
+
+<div class="fieldcontain ${hasErrors(bean: gmsMessageInstance, field: 'sendPolicy', 'error')} required">
+	<label for="sendPolicy">
+		<g:message code="gmsMessage.sendPolicy.label" default="Send Policy" />
+		<span class="required-indicator">*</span>
+	</label>
+	
+	<g:select name="sendPolicy" from="${kr.codesolutions.gms.constants.SendPolicy}" optionKey="value" optionValue="value" value="${gmsMessageInstance?.sendPolicy}" class="many-to-one" />
+
 </div>
 
 <div class="fieldcontain ${hasErrors(bean: gmsMessageInstance, field: 'reservationTime', 'error')} ">

@@ -26,10 +26,6 @@ class GmsQueueSend {
 	}
 	
 	def beforeInsert() {
-		if(message.status == MessageStatus.WAITING){
-			message.status = MessageStatus.SENDING
-		}
-		recipient.status = MessageStatus.SENDING
 	}
 	
 	def beforeUpdate() {

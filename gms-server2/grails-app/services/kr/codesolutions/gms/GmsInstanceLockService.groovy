@@ -12,6 +12,7 @@ class GmsInstanceLockService {
 	def boolean lock(InstanceLock lock, int instanceId){
 		try{
 			def gmsInstanceLock = GmsInstanceLock.lock(lock.value)
+			if(gmsInstanceLock.locked && gmsInstanceLock.instance == instanceId) return true
 			if(!gmsInstanceLock.locked){
 				gmsInstanceLock.instance = instanceId
 				gmsInstanceLock.save(flush:true)

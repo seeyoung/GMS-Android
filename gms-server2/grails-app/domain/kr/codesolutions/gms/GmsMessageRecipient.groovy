@@ -24,14 +24,15 @@ class GmsMessageRecipient {
 	SendType sendType = SendType.GCM
 	MessageStatus status = MessageStatus.WAITING
 	
-	Date failedTime
-	Date sentTime
-	Date completedTime
-	Date readTime
-	Date terminatedTime
-	boolean isFailed = false
 	boolean isSent = false
+	Date sentTime
 	boolean isRead = false
+	Date readTime
+	boolean isFailed = false
+	Date failedTime
+
+	Date completedTime
+	Date terminatedTime
 	
 	String error
 
@@ -52,10 +53,10 @@ class GmsMessageRecipient {
 		content blank: false, maxSize: 2000
 		status blank: false, maxSize: 10
 		error nullable: true, maxSize: 255
-		failedTime nullable: true
 		sentTime nullable: true
-		completedTime nullable: true
 		readTime nullable: true
+		failedTime nullable: true
+		completedTime nullable: true
 		terminatedTime nullable: true
 	}
 	

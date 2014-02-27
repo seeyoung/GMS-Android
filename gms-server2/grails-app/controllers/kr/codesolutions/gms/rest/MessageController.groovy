@@ -17,27 +17,17 @@ class MessageController {
 	
 	@Transactional
 	def read() {
-		// 개인메시지
-		if(params.ownType == '0'){
-			def gmsMessageInstance = GmsMessage.get(params.id) 
-			if (gmsMessageInstance == null) {
-				notFound()
-				return
-			}
-			def gmsMessageRecipientInstance = GmsMessageRecipient.findByMessageAndRegistrationId(gmsMessageInstance, params.registrationId)
-			if(gmsMessageRecipientInstance == null) {
-				notFound()
-				return
-			}
-			gmsMessageService.read(gmsMessageInstance, gmsMessageRecipientInstance)
-//		}else if(params.ownType == '1'){ // 공지메시지
-//			def gmsMassMessageInstance = GmsMassMessage.get(params.id)
-//			if (gmsMassMessageInstance == null) {
-//				notFound()
-//				return
-//			}
-//			gmsMassMessageService.read(gmsMassMessageInstance)
+		def gmsMessageInstance = GmsMessage.get(params.id) 
+		if (gmsMessageInstance == null) {
+			notFound()
+			return
 		}
+		def gmsMessageRecipientInstance = GmsMessageRecipient.findByMessageAndRegistrationId(gmsMessageInstance, params.registrationId)
+		if(gmsMessageRecipientInstance == null) {
+			notFound()
+			return
+		}
+		gmsMessageService.read(gmsMessageInstance, gmsMessageRecipientInstance)
 		
         request.withFormat {
             '*'{ render status: OK }
@@ -74,7 +64,7 @@ class MessageController {
 			gmsMessageInstance = gmsMessageService.createAndSend(gmsMessageInstance, params)
 			
 			message.messageId = gmsMessageInstance.id
-			message.error = gmsMessageInstance.error
+			if(gmsMessageInstance.error != null) message.error = gmsMessageInstance.error
 			gmsMessageInstance.recipients.collect(message.results){gmsMessageRecipientInstance ->
 											new Result(userId:gmsMessageRecipientInstance.userId, isSent:gmsMessageRecipientInstance.isSent)
 										}
@@ -96,10 +86,10 @@ class MessageController {
 class Message{
 	Serializable messageId
 	def results = []
-	String error 
+	String error = ''
 }
 
 class Result{
 	String userId
-	boolean isSent
+	boolean isSent = false
 }
