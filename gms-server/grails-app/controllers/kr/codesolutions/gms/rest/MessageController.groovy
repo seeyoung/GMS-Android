@@ -76,7 +76,7 @@ class MessageController {
 			gmsMessageInstance = gmsMessageService.createAndSend(gmsMessageInstance, params)
 			
 			message.messageId = gmsMessageInstance.id
-			message.error = gmsMessageInstance.error
+			if(gmsMessageInstance.error != null) message.error = gmsMessageInstance.error
 			gmsMessageInstance.recipients.collect(message.results){gmsMessageRecipientInstance ->
 											new Result(userId:gmsMessageRecipientInstance.userId, isSent:gmsMessageRecipientInstance.isSent)
 										}
@@ -98,10 +98,10 @@ class MessageController {
 class Message{
 	Serializable messageId
 	def results = []
-	String error 
+	String error = ''
 }
 
 class Result{
 	String userId
-	boolean isSent
+	boolean isSent = false
 }
