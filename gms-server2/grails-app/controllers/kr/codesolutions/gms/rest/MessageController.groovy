@@ -6,7 +6,7 @@ import kr.codesolutions.gms.GmsMessage
 import kr.codesolutions.gms.GmsMessageRecipient
 import kr.codesolutions.gms.GmsUser
 
-@Transactional(readOnly = true)
+@Transactional
 class MessageController {
 
 	def gmsMessageService
@@ -15,28 +15,24 @@ class MessageController {
 		log.info params
 	}
 	
-	@Transactional
-	def read() {
-		def gmsMessageInstance = GmsMessage.get(params.id) 
-		if (gmsMessageInstance == null) {
+	def read(GmsMessageRecipient gmsMessageRecipientInstance) {
+		if (gmsMessageRecipientInstance == null) {
 			notFound()
 			return
 		}
-		def gmsMessageRecipientInstance = GmsMessageRecipient.findByMessageAndRegistrationId(gmsMessageInstance, params.registrationId)
-		if(gmsMessageRecipientInstance == null) {
+		if (gmsMessageRecipientInstance.registrationId != params.registrationId) {
 			notFound()
 			return
 		}
-		gmsMessageService.read(gmsMessageInstance, gmsMessageRecipientInstance)
+		gmsMessageService.read(gmsMessageRecipientInstance)
 		
         request.withFormat {
             '*'{ render status: OK }
         }
 	}
 	
-	@Transactional
-	def delete(GmsMessage gmsMessageInstance) {
-		if (gmsMessageInstance == null) {
+	def delete(GmsMessageRecipient gmsMessageRecipientInstance) {
+		if (gmsMessageRecipientInstance == null) {
 			notFound()
 			return
 		}
@@ -45,7 +41,7 @@ class MessageController {
 			notFound()
 			return
 		}
-		gmsMessageService.deleteInBox(gmsUserInstance, gmsMessageInstance)
+		gmsMessageService.deleteBoxIn(gmsUserInstance, gmsMessageRecipientInstance)
 		
         request.withFormat {
             '*'{ render status: OK }
@@ -53,21 +49,32 @@ class MessageController {
 	}
 
     def send(GmsMessage gmsMessageInstance) {
-		def sentCount = 0;
 		def message = new Message()
         if (gmsMessageInstance == null) {
 			respond message
             return
         }
 
-		try{		
-			gmsMessageInstance = gmsMessageService.createAndSend(gmsMessageInstance, params)
+		try{
+			if(gmsMessageInstance.senderUserId == null){
+				gmsMessageInstance.senderUserId = params.senderId
+			}
+			if(gmsMessageInstance.recipientUserId != null){
+				gmsMessageInstance.recipientFilter = "user_id='${gmsMessageInstance.recipientUserId}'"
+			}else if(params.recipientId != null){
+				def recipientIds = params.recipientId.replaceAll(";","','")
+				gmsMessageInstance.recipientFilter =  "user_id IN ('${recipientIds}')"
+			}
+			gmsMessageInstance.isCallback = true
+			gmsMessageInstance = gmsMessageService.createAndSend(gmsMessageInstance)
 			
 			message.messageId = gmsMessageInstance.id
 			if(gmsMessageInstance.error != null) message.error = gmsMessageInstance.error
-			gmsMessageInstance.recipients.collect(message.results){gmsMessageRecipientInstance ->
-											new Result(userId:gmsMessageRecipientInstance.userId, isSent:gmsMessageRecipientInstance.isSent)
-										}
+			def recipients = GmsMessageRecipient.where{message == gmsMessageInstance}.list()
+			recipients.collect(message.results){ recipient ->
+				new Result(userId: recipient.userId, isSent: recipient.isSent)
+			}
+			
 		}catch(Exception ex){
 			message.error = ex.message
 			log.error ex

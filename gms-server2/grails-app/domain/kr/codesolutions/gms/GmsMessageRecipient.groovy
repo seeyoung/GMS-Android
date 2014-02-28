@@ -40,12 +40,10 @@ class GmsMessageRecipient {
 	Date modifiedTime = new Date()
 	String lastEventTime = modifiedTime.format('yyyyMMddHHmmss')
 	
-	static transients = ['failedCount','sentCount']
-	
 	static constraints = {
 		userId blank: false, maxSize: 50
 		name blank: false, maxSize: 50
-		phoneNumber blank: false, maxSize: 20
+		phoneNumber nullable: true, maxSize: 20
 		registrationId nullable: true, maxSize: 255
 		email nullable: true, maxSize: 50
 		sendType nullable: true, maxSize: 10

@@ -86,7 +86,7 @@
 				$.ajax({
 						type: "POST",
 						url: "/gms/message/send",
-						data: {recipientId:"max;dong",subject:"응급상황 발생!",content:contentHtml,senderId:"gmsmaster"},
+						data: {recipientUserId:"max",senderUserId:"dong",subject:"응급상황 발생!",content:contentHtml},
 						//data: {id:"34", registrationId:"APA91bEkIO2dj4nvpp-2EuhPA7BO6iOED84K0NuG1oIHsoBgZhuMOSLSMUD3PzqT_cwqu0WC_Mka2OG1kRRawSN9QFYy1uMnJZKFrZB6Ncy_T5TYUFcx3NuQzbKj7K9uFX__qLrVSBQIRuU1eMRx1b-NypoDMYBo4g"},
 						dataType: "text",
 						success: function(result){

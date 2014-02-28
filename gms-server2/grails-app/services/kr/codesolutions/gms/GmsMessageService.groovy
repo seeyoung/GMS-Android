@@ -1,10 +1,10 @@
 package kr.codesolutions.gms
 
-import grails.gorm.DetachedCriteria
 import grails.transaction.Transactional
 import grails.util.Environment
 import groovy.sql.Sql
 import groovy.text.GStringTemplateEngine
+import groovy.text.Template
 import groovy.time.TimeCategory
 import kr.codesolutions.gms.constants.MessageStatus
 import kr.codesolutions.gms.constants.SendPolicy
@@ -28,7 +28,7 @@ class GmsMessageService {
 	def propertyInstanceMap = org.codehaus.groovy.grails.plugins.DomainClassGrailsPlugin.PROPERTY_INSTANCE_MAP
 	Sender gcmSender
 	def gmsInstanceLockService
-	def templateEngine = new GStringTemplateEngine()
+	GStringTemplateEngine templateEngine = new GStringTemplateEngine()
 	
 	def cleanUpGorm() {
 		Session session = sessionFactory.currentSession
@@ -37,235 +37,145 @@ class GmsMessageService {
 		propertyInstanceMap.get().clear()
 	}
 
-	def Map listUser(UserSearchCommand cmd, Map params) {
-		def criteria = new DetachedCriteria(GmsUser).build{
-			and {
-				like ('userId', cmd.userId)
-				like ('name', cmd.name)
-				like ('phoneNumber', cmd.phoneNumber)
-				eq ('enabled', true)
-			}
+	def GmsMessage createAndSend(GmsMessage message) {
+		createMessage(message)
+		if (message.isFailed){
+			throw new UnexpectedRollbackException(message.error)
 		}
-		def totalCount = criteria.count()
-		def list = criteria.list(params)
 		
-		return [list: list, totalCount: totalCount]
+		def recipients = createRecipient(message)
+		if (message.isFailed){
+			throw new UnexpectedRollbackException(message.error)
+		}
+		
+		try{
+			recipients.each { recipient ->
+				send(message, recipient)
+			}
+		}catch(Exception ex){
+			message.isFailed = true
+			message.error = ex.message
+			throw new UnexpectedRollbackException(message.error)
+		}
+		
+		new GmsBoxResend(message: message).save(flush:true)
+		
+		return message
 	}
 	
-	def GmsMessage create(GmsMessage gmsMessageInstance, Map params) {
-		params.senderId = params.senderId?:'gmsmaster'
-		def sender = GmsUser.findByUserId(params.senderId)
-		if(sender != null){
-			gmsMessageInstance.senderUserId = sender.userId
-			gmsMessageInstance.senderName = sender.name
-			gmsMessageInstance.senderPhoneNumber = sender.phoneNumber
-			gmsMessageInstance.senderRegistrationId = sender.registrationId
-			gmsMessageInstance.senderEmail = sender.email
-		}
-		gmsMessageInstance.validate()
-		if (gmsMessageInstance.hasErrors()) {
-			return gmsMessageInstance
-		}
-		gmsMessageInstance.save()
+	def GmsMessage createMessage(GmsMessage message) {
 		
-		// 메시지 수신자 저장
-		if(params.recipientGroup != null && !params.recipientGroup.empty){
-			def gmsUserGroupInstance = GmsUserGroup.get(params.recipientGroup)
-			if(gmsUserGroupInstance != null){
-				gmsMessageInstance.recipientFilter = gmsUserGroupInstance.filter
-			}
+		def sender = GmsUser.findByUserId(message.senderUserId)
+		if(sender == null){
+			message.isFailed = true
+			message.error = 'Invalid sender'
+			return message
 		}
-		if(params.recipientId != null && !params.recipientId.empty){
-			params.recipientId.replaceAll(';',"','").each { userId ->
-				def gmsUserInstance = GmsUser.findByUserId(userId)
-				if(gmsUserInstance){
-					createRecipient(gmsMessageInstance, gmsUserInstance)
-				}
-			}
+		message.senderUserId = sender.userId
+		message.senderName = sender.name
+		message.senderPhoneNumber = sender.phoneNumber
+		message.senderRegistrationId = sender.registrationId
+		message.senderEmail = sender.email
+		
+		message.validate()
+		if (message.hasErrors()) {
+			message.isFailed = true
+			throw new UnexpectedRollbackException(message.errors)
 		}
-		if(gmsMessageInstance.recipients == null) {
-			throw new UnexpectedRollbackException("recipients is empty")
+		message.save()
+		
+		// 보낸메시지함에 보관
+		new GmsBoxOut(owner: sender, message: message).save(flush:true)
+		
+		return message
+	}
+			
+	def List createRecipient(GmsMessage message) {
+		Template subjectTemplate = templateEngine.createTemplate(message.subject)
+		Template contentTemplate = templateEngine.createTemplate(message.content)
+		def users = GmsUser.createCriteria().list{
+			sqlRestriction(message.recipientFilter)
+			order('id', 'asc')
 		}
+		def recipients = []
+		users.each { user ->
+			recipients << createRecipient(message, user, subjectTemplate, contentTemplate)
+		}
+		if(recipients.size() == 0) {
+			message.isFailed = true
+			message.error = 'No recipients'
+			return message
+		}
+		message.recipientCount = recipients.size()
+		message.save(flush:true)
+		return recipients
+	}
+	
+	/**
+	 * 메시지의 수신자를 주어진 GmsUser정보로 생성한다.
+	 * 수신자에게 보낼 메시지의 제목과 내용을 Template로 생성한다.
+	 * @param message 메시지
+	 * @param user 사용자
+	 * @param subjectTemplate 제목을 생성할 Template
+	 * @param contentTemplate 내용을 생성할 Template
+	 * @return
+	 */
+	def GmsMessageRecipient createRecipient(GmsMessage message, GmsUser user, Template subjectTemplate, Template contentTemplate){
+		def binding = user.properties + message.properties
+		def recipient = new GmsMessageRecipient(message: message,
+												userId: user.userId,
+												name: user.name,
+												phoneNumber: user.phoneNumber,
+												registrationId: user.registrationId,
+												email: user.email,
+												subject: subjectTemplate.make(binding).toString(),
+												content: contentTemplate.make(binding).toString()
+												)
+		if(message.sendPolicy in SendType.values()){
+			recipient.sendType = message.sendPolicy
+		}else if(message.sendPolicy in [SendPolicy.ADVENCED]){
+			if(user.registrationId == null) recipient.sendType = SendType.SMS
+			else if(user.phoneNumber == null) recipient.sendType = SendType.EMAIL
+		}
+		recipient.save()
+//		new GmsBoxIn(owner: user, recipient: recipient).save()
+		return recipient
+	}
+	
+	/**
+	 * 
+	 * @param gmsUserInstance
+	 * @param gmsMessageRecipientInstance
+	 * @return
+	 */
+	def GmsBoxIn deleteBoxIn(GmsUser gmsUserInstance, GmsMessageRecipient gmsMessageRecipientInstance){
+		GmsBoxIn.where{owner == gmsUserInstance && recipient == gmsMessageRecipientInstance}.deleteAll()
+	}
+	
+	/**
+	 * 
+	 * @param gmsUserInstance
+	 * @param gmsMessageInstance
+	 * @return
+	 */
+	def GmsBoxOut deleteBoxOut(GmsUser gmsUserInstance, GmsMessage gmsMessageInstance){
+		GmsBoxOut.where{owner == gmsUserInstance && message == gmsMessageInstance}.deleteAll()
+	}
 
-		// 예약시간이 있으면 예약메시지함으로 저장(스케쥴러가 예약시간을 확인하여 발송한다)
-		// 그외의 메시지는 발송대기함으로 저장(스케쥴러가 즉시 발송한다)
-//		if(gmsMessageInstance.reservationTime){
-//			new GmsMessageReserveBox(message:gmsMessageInstance).save flush:true
-//		}else{
-//			new GmsMessageWaitingBox(message:gmsMessageInstance).save flush:true
-//		}
-		// 모든 메시지는 보낸메시지함에도 보관한다
-		new GmsBoxOut(owner:gmsMessageInstance.owner, message:gmsMessageInstance).save flush:true
-		
+	def GmsMessage read(GmsMessageRecipient recipient){
+		if(!recipient.isRead){
+			recipient.isRead = true
+			recipient.save flush:true
+		}
+		def gmsMessageInstance = recipient.message
+		if(!gmsMessageInstance.isRead){
+			gmsMessageInstance.isRead = true
+			gmsMessageInstance.save flush:true
+		}
+		GmsBoxResend.where{message == gmsMessageInstance}.deleteAll()
 		return gmsMessageInstance
 	}
-	
-	def createRecipient(GmsMessage gmsMessageInstance, GmsUser gmsUserInstance){
-		def gmsMessageRecipientInstance =
-			new GmsMessageRecipient(userId: gmsUserInstance.userId,
-									name: gmsUserInstance.name,
-									phoneNumber: gmsUserInstance.phoneNumber,
-									registrationId: gmsUserInstance.registrationId,
-									message: gmsMessageInstance).save()
-		gmsMessageInstance.addToRecipients(gmsMessageRecipientInstance)
-//		new GmsMessageInBox(owner: gmsUserInstance,
-//							message: gmsMessageInstance).save()
 
-	}
-	
-//	def GmsMessage read(GmsMessage gmsMessageInstance, GmsMessageRecipient gmsMessageRecipientInstance){
-//		if(!gmsMessageRecipientInstance.isRead){
-//			gmsMessageRecipientInstance.isRead = true
-//			gmsMessageRecipientInstance.save flush:true
-//		}
-//		if(!gmsMessageInstance.isRead){
-//			gmsMessageInstance.isRead = true
-//			gmsMessageInstance.save flush:true
-//		}
-//		def box = GmsMessageResendBox.findByMessage(gmsMessageInstance)
-//		if(box != null){
-//			box.delete()
-//			new GmsBoxSent(message:gmsMessageInstance).save flush:true
-//		}
-//		return gmsMessageInstance
-//	}
-//	
-//	def GmsBoxIn deleteInBox(GmsUser gmsUserInstance, GmsMessage gmsMessageInstance){
-//		def box = GmsBoxIn.findByOwnerAndMessage(gmsUserInstance, gmsMessageInstance)
-//		if(box != null){
-//			box.delete flush:true
-//		}
-//	}
-//	
-//	def GmsBoxOut deleteOutBox(GmsUser gmsUserInstance, GmsMessage gmsMessageInstance){
-//		def box = GmsBoxOut.findByOwnerAndMessage(gmsUserInstance, gmsMessageInstance)
-//		if(box != null){
-//			box.delete flush:true
-//		}
-//		return box
-//	}
-//
-//	def GmsMessage createAndSend(GmsMessage gmsMessageInstance, Map params) {
-//		def sentCount = 0
-//		gmsMessageInstance = create(gmsMessageInstance, params)
-//		if (gmsMessageInstance.hasErrors()){
-//			throw new UnexpectedRollbackException(gmsMessageInstance.errors)
-//		}
-//		
-//		GmsMessageWaitingBox.findByMessage(gmsMessageInstance).delete(flush:true)
-////		new GmsMessageSendingBox(message:gmsMessageInstance).save(flush:true).delete(flush:true)
-////		sentCount = sendGCM(gmsMessageInstance)
-////		new GmsMessageResendBox(message:gmsMessageInstance).save(flush:true)
-//		
-//		return gmsMessageInstance
-//	}
-//	
-//
-//    def send(GmsMessage gmsMessageInstance) {
-//		switch(gmsMessageInstance.sendPolicy){
-//			case ['GCM','COMPLEX','ADVENCED']:
-//				sendGCM gmsMessageInstance
-//				break
-//			case 'SMS':
-//				sendSMS gmsMessageInstance
-//				break
-//		}
-//    }
-//
-//	// GCM메시지를 모든 수신자에게 전송 발송정책에따라 GCM미수신자에게는 SMS메시지를 전송한다.
-//	def sendGCM(GmsMessage gmsMessageInstance) {
-//		if(gcmSender == null){
-//			gcmSender = new Sender(grailsApplication.config.gms.gcmApiKey)
-//		}
-//		Message gcmMessage = new Message.Builder()
-//				.collapseKey('GMS')
-//				.addData('GMS.id', gmsMessageInstance.id.toString())
-//				.addData('GMS.ownType', gmsMessageInstance.ownType)
-//				.addData('GMS.msgType', gmsMessageInstance.msgType)
-//				.addData('GMS.subject', URLEncoder.encode(gmsMessageInstance.subject, 'UTF-8') )
-//				.addData('GMS.content', URLEncoder.encode(gmsMessageInstance.content, 'UTF-8') )
-//				.addData('GMS.senderId', gmsMessageInstance.sender.userId)
-//				.build()
-//		log.debug 'GCM message: ' + gcmMessage.toString()
-//		def gcmRecipients = gmsMessageInstance.recipients.grep{it.registrationId != null}
-//		log.info 'Recipient Count : ' + gcmRecipients.size()
-//		if(gcmRecipients.size() > 0){
-//			try{
-//				MulticastResult result = gcmSender.send(gcmMessage, gcmRecipients*.registrationId, 3)
-//				gcmRecipients.eachWithIndex{gmsMessageRecipientInstance, index ->
-//					log.info 'Result[' + index + '] :' + gmsMessageRecipientInstance.name + ',' + result.results[index].messageId
-//					if(result.results[index].messageId){
-//						gmsMessageRecipientInstance.isSent = true
-//						gmsMessageRecipientInstance.sendType = 'GCM'
-//					}else{
-//						gmsMessageRecipientInstance.error = result.results[index].errorCode
-//					}
-//					gmsMessageRecipientInstance.save()
-//				}
-//			}catch(Exception ex){
-//				gmsMessageInstance.error = ex.message
-//				log.error ex.message
-//			}
-//		}
-//		// GCM메시지를 전송하지 못하거나 RegistrationID가 없는 사용자에게 SMS메시지를 전송한다.
-//		if(gmsMessageInstance.sendPolicy == 'COMPLEX'){
-//			def smsRecipients = gmsMessageInstance.recipients.grep{it.registrationId == null || it.errorCode != null}
-//			if(smsRecipients.size() > 0){
-//				try{
-//					smsRecipients.each { recipient ->
-//						sendSMS(gmsMessageInstance.content, gmsMessageInstance.sender, recipient)
-//					}
-//				}catch(Exception ex){
-//					gmsMessageInstance.error = ex.message
-//					log.error ex.message
-//				}
-//			}
-//		}
-//		return gmsMessageInstance.recipients.grep{it.isSent}.size()
-//    }
-//	
-//	// GCM메시지를 수신자 1명에게 전송
-//	def sendGCM(Message gcmMessage, Sender gcmSender, GmsMessageRecipient gmsMessageRecipientInstance){
-//		Result result = gcmSender.send(gcmMessage, gmsMessageRecipientInstance.registrationId, 3)
-//		if(result.messageId){
-//			gmsMessageRecipientInstance.isSent = true
-//			gmsMessageRecipientInstance.sendType = 'GCM'
-//		}else{
-//			gmsMessageRecipientInstance.error = result.errorCode
-//		}
-//		gmsMessageRecipientInstance.save()
-//	}
-//
-//
-//	/**
-//	 * 재발송이 필요한 메시지를 SMS발송하고 완료메시지함으로 이동한다.
-//	 * 
-//	 * @param instance 서버 Instance번호
-//	 * @return
-//	 */
-//	def resendMessage(int instance, int retryPendingSeconds) {
-//		def criteria = new DetachedCriteria(GmsMessageResendBox).build{
-//							lt('createdTime', use(TimeCategory) { new Date() - retryPendingSeconds.seconds})
-//		}
-//		def results = criteria.list(sort:'createdTime', order:'asc')
-//		if(results != null){
-//			results.each { box ->
-//				if(!box.isDirty()){
-//					// 수신자가 1명이라도 확인하지 않는 메시지는 모든 수신자에게 SMS로 재발송한다.
-//					if(!box.message.isRead){
-//						log.info "message ${box.message.id} is resent."
-//						sendSMS(box.message)
-//					}
-//					log.info "message ${box.message.id} is moved to sentBox."
-//					new GmsBoxSent(message:box.message).save flush:true
-//					box.delete flush:true
-//				}
-//			}
-//		}
-//	}
-//	
-
-	
 	
 	/**
 	 * 생성된 메시지를 발송하기위하여 제출한다. 
@@ -389,8 +299,8 @@ class GmsMessageService {
 		queues += GmsQueuePublish.where{instance == instanceId && message.isBulk == true}.list(max:channels.size(), sort:'id', order:'asc')
 		queues.each { queue ->
 			def message = queue.message
-			def subjectTemplate = templateEngine.createTemplate(message.subject)
-			def contentTemplate = templateEngine.createTemplate(message.content)
+			Template subjectTemplate = templateEngine.createTemplate(message.subject)
+			Template contentTemplate = templateEngine.createTemplate(message.content)
 			def users = GmsUser.createCriteria().list{
 				sqlRestriction(message.recipientFilter + " AND id >= ${queue.offset}")
 				maxResults(queueSize)
@@ -398,23 +308,7 @@ class GmsMessageService {
 			}
 			def (offset, end) = [0, 0]
 			users.eachWithIndex { user, index ->
-				def binding = user.properties
-				def recipient = new GmsMessageRecipient(message: message,
-														userId: user.userId,
-														name: user.name,
-														phoneNumber: user.phoneNumber,
-														registrationId: user.registrationId,
-														email: user.email,
-														subject: subjectTemplate.make(binding).toString(),
-														content: contentTemplate.make(binding).toString()
-														)
-				if(message.sendPolicy in SendType.values()){
-					recipient.sendType = message.sendPolicy
-				}else if(message.sendPolicy in [SendPolicy.ADVENCED]){
-					if(user.registrationId == null) recipient.sendType = SendType.SMS
-					else if(user.phoneNumber == null) recipient.sendType = SendType.EMAIL
-				}
-				recipient.save()
+				def recipient = createRecipient(message, user, subjectTemplate, contentTemplate)
 				if(index == 0) offset = recipient.id
 				else end = recipient.id
 				if(index % 100 == 0) cleanUpGorm()
@@ -441,6 +335,9 @@ class GmsMessageService {
 		if(queues.size() > 0){
 			log.info "Collected (Instance: #${instanceId}): ${queues.size()} waiting queues"
 		}
+		
+		// 10분이상 대기중인 재발송건은 삭제한다.
+		GmsBoxResend.where{createdTime < use(TimeCategory) { new Date() - 10.minutes}}.deleteAll()
 	}
 	
 	/**
@@ -493,20 +390,7 @@ class GmsMessageService {
 			def message = queue.message
 			def recipient = queue.recipient
 			try{
-				def returnCode = send(message, recipient)
-				
-				if(returnCode == null){
-					recipient.isSent = true
-					if(message.isBulk == false){
-						message.sentCount += 1
-					}
-				}else{
-					recipient.isFailed = true
-					recipient.error = returnCode
-					if(message.isBulk == false){
-						message.failedCount += 1
-					}
-				}
+				send(message, recipient)
 				queue.delete()
 			}catch(Exception ex){
 				recipient.error = ex.message
@@ -537,8 +421,8 @@ class GmsMessageService {
 			gmsMessageInstance.failedCount = failedCount
 			gmsMessageInstance.sentCount = sentCount
 			def count = GmsQueuePublish.where{ message == gmsMessageInstance }.count() +
-						GmsQueuePublish.where{ message == gmsMessageInstance }.count() +
-						GmsQueuePublish.where{ message == gmsMessageInstance }.count()
+						GmsQueueWait.where{ message == gmsMessageInstance }.count() +
+						GmsQueueSend.where{ message == gmsMessageInstance }.count()
 			if(count == 0){
 				if(gmsMessageInstance.sentCount > 0) gmsMessageInstance.isSent = true
 				else gmsMessageInstance.isFailed = true
@@ -564,7 +448,7 @@ class GmsMessageService {
 					new Date() - terminatePreserveDays.days
 				}
 				development {
-					new Date() - 300.seconds
+					new Date() - 10.minutes
 				}
 			}
 		}.format('yyyyMMddHHmmss')
@@ -658,17 +542,37 @@ class GmsMessageService {
 	 * @return
 	 */
 	def send(GmsMessage message, GmsMessageRecipient recipient){
+		def returnCode = null
 		Environment.executeForCurrentEnvironment {
 			production {
 				switch(recipient.sendType){
-					case SendType.GCM: return sendGCM(message, recipient)
-					case SendType.SMS: return sendSMS(message, recipient)
-					case SendType.EMAIL: return sendEMAIL(message, recipient)
+					case SendType.GCM: returnCode = sendGCM(message, recipient); break
+					case SendType.SMS: returnCode = sendSMS(message, recipient); break
+					case SendType.EMAIL: returnCode = sendEMAIL(message, recipient); break
 				}
 			}
 			development {
+				switch(recipient.sendType){
+					case SendType.GCM: returnCode = sendGCM(message, recipient); break
+					case SendType.SMS: returnCode = sendSMS(message, recipient); break
+					case SendType.EMAIL: returnCode = sendEMAIL(message, recipient); break
+				}
 			}
 		}
+		
+		if(returnCode == null){
+			recipient.isSent = true
+			if(message.isBulk == false){
+				message.sentCount += 1
+			}
+		}else{
+			recipient.isFailed = true
+			recipient.error = returnCode
+			if(message.isBulk == false){
+				message.failedCount += 1
+			}
+		}
+		return returnCode
 	}
 
 	/**
@@ -688,8 +592,9 @@ class GmsMessageService {
 		Message gcmMessage = new Message.Builder()
 				.collapseKey('GMS')
 				.addData('GMS.id', recipient.id.toString())
-				.addData('GMS.ownType', message.isPersonal)
-				.addData('GMS.msgType', message.isCallback)
+				.addData('GMS.ownType', message.isPersonal?'1':'0')
+				.addData('GMS.msgType', message.isCallback?'1':'0')
+				.addData('GMS.subject', URLEncoder.encode(recipient.subject, 'UTF-8') )
 				.addData('GMS.content', URLEncoder.encode(recipient.content, 'UTF-8') )
 				.addData('GMS.senderId', message.senderUserId)
 				.build()
@@ -735,5 +640,48 @@ class GmsMessageService {
 	}
 	
 
-
+	//	def Map listUser(UserSearchCommand cmd, Map params) {
+	//		def criteria = new DetachedCriteria(GmsUser).build{
+	//			and {
+	//				like ('userId', cmd.userId)
+	//				like ('name', cmd.name)
+	//				like ('phoneNumber', cmd.phoneNumber)
+	//				eq ('enabled', true)
+	//			}
+	//		}
+	//		def totalCount = criteria.count()
+	//		def list = criteria.list(params)
+	//
+	//		return [list: list, totalCount: totalCount]
+	//	}
+	//
+	//	/**
+	 //	 * 재발송이 필요한 메시지를 SMS발송하고 완료메시지함으로 이동한다.
+	 //	 *
+	 //	 * @param instance 서버 Instance번호
+	 //	 * @return
+	 //	 */
+	 //	def resendMessage(int instance, int retryPendingSeconds) {
+	 //		def criteria = new DetachedCriteria(GmsMessageResendBox).build{
+	 //							lt('createdTime', use(TimeCategory) { new Date() - retryPendingSeconds.seconds})
+	 //		}
+	 //		def results = criteria.list(sort:'createdTime', order:'asc')
+	 //		if(results != null){
+	 //			results.each { box ->
+	 //				if(!box.isDirty()){
+	 //					// 수신자가 1명이라도 확인하지 않는 메시지는 모든 수신자에게 SMS로 재발송한다.
+	 //					if(!box.message.isRead){
+	 //						log.info "message ${box.message.id} is resent."
+	 //						sendSMS(box.message)
+	 //					}
+	 //					log.info "message ${box.message.id} is moved to sentBox."
+	 //					new GmsBoxSent(message:box.message).save flush:true
+	 //					box.delete flush:true
+	 //				}
+	 //			}
+	 //		}
+	 //	}
+	 //
+	 
+	 
 }
