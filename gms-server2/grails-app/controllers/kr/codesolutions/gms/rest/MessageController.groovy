@@ -56,14 +56,22 @@ class MessageController {
         }
 
 		try{
+			gmsMessageInstance.senderUserId = gmsMessageInstance.senderUserId?:params.senderId
 			if(gmsMessageInstance.senderUserId == null){
-				gmsMessageInstance.senderUserId = params.senderId
+				message.error = 'No sender'
+				respond message
+	            return
 			}
 			if(gmsMessageInstance.recipientUserId != null){
 				gmsMessageInstance.recipientFilter = "user_id='${gmsMessageInstance.recipientUserId}'"
 			}else if(params.recipientId != null){
 				def recipientIds = params.recipientId.replaceAll(";","','")
 				gmsMessageInstance.recipientFilter =  "user_id IN ('${recipientIds}')"
+			}
+			if(gmsMessageInstance.recipientFilter == null){
+				message.error = 'No recipients'
+				respond message
+	            return
 			}
 			gmsMessageInstance.isCallback = true
 			gmsMessageInstance = gmsMessageService.createAndSend(gmsMessageInstance)
