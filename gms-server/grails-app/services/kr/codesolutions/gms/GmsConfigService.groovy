@@ -59,46 +59,8 @@ class GmsConfigService {
 					modifiedBy: 'Admin'
 					)
 			m.save()
-
-			def u = new GmsUser(
-					userId: 'max',
-					name: '류영은',
-					phoneNumber: '01037445845',
-					registrationId: 'APA91bGGBz_Gs66M55APc6Oty3FOUT9uywIjEAcRTYHuiBcVaQLnBDeeexwbyHAtrkfEi0SLAeS4hynG8CjbCr7ZR7PXMYShZMjpBpQfKwuc0JeCCmiVZjUDlU9P6aHy_G5mlbWFiBWj1zd8AIV2yfPDUlwFE0CSSg',
-					enabled: true,
-					createdBy: 'Admin',
-					modifiedBy: 'Admin'
-					)
-			u.save()
-
-			def u2 = new GmsUser(
-					userId: 'dong',
-					name: '류동소',
-					phoneNumber: '01023435845',
-					registrationId: '-',
-					enabled: true,
-					createdBy: 'Admin',
-					modifiedBy: 'Admin'
-					)
-			u2.save()
-
-			new GmsUserGroup(
-					name: '서울지역',
-					owner: m,
-					members: [u, u2]).save()
 		}
 	
-//		100.times { id ->
-//			new GmsMassMessageRequest(trSenddate: new Date(), 
-//						recipientId: 'dong', trMsg: 'Test').save()
-//			new GmsMassMessageRequest(trSenddate: new Date(), 
-//						recipientId: 'max', trMsg: 'Test2').save()
-//			new GmsMassMessageRequest(trSenddate: new Date(), 
-//						recipientId: 'max3', trMsg: 'Test3').save()
-//		}
-		new GmsMassMessageRequest(trSenddate: new Date(), 
-			recipientId: 'max', trMsgtype: '1', trMsg: 'Test for callback').save()
-
 		cleanUpGorm()
 	}
 	

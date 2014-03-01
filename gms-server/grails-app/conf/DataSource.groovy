@@ -24,7 +24,7 @@ environments {
 //			url = "jdbc:hsqldb:mem:devDb"
 //			logSql = true
 //			formatSql = true
-			dbCreate = "update"
+			dbCreate = "validate"
 			url = "jdbc:oracle:thin:@106.246.233.138:1521/XE"
 			logSql = true
 			properties {
