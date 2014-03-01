@@ -61,6 +61,7 @@ grails.project.dependency.resolution = {
 		compile ":quartz:1.0.1"
 		compile ":jquery-ui:1.10.3"
 		compile ":jquery-date-time-picker:0.1.1"
+		compile ":mail:1.0.1"
 		
         // plugins needed at runtime but not for compilation
         runtime ":hibernate:3.6.10.7" // or ":hibernate4:4.1.11.4"
