@@ -26,9 +26,11 @@ class GmsMessageService {
 	def dataSource
 	SessionFactory sessionFactory
 	def propertyInstanceMap = org.codehaus.groovy.grails.plugins.DomainClassGrailsPlugin.PROPERTY_INSTANCE_MAP
-	Sender gcmSender
 	def gmsInstanceLockService
 	GStringTemplateEngine templateEngine = new GStringTemplateEngine()
+	
+	Sender gcmSender
+	def mailService
 	
 	def cleanUpGorm() {
 		Session session = sessionFactory.currentSession
@@ -131,14 +133,15 @@ class GmsMessageService {
 												subject: subjectTemplate.make(binding).toString(),
 												content: contentTemplate.make(binding).toString()
 												)
-		if(message.sendPolicy in SendType.values()){
-			recipient.sendType = message.sendPolicy
-		}else if(message.sendPolicy in [SendPolicy.ADVENCED]){
+		if(message.sendPolicy == SendPolicy.ADVENCED){
 			if(user.registrationId == null) recipient.sendType = SendType.SMS
 			else if(user.phoneNumber == null) recipient.sendType = SendType.EMAIL
+		}else{
+			recipient.sendType = SendType.valueOf(message.sendPolicy.value)
 		}
 		recipient.save()
 //		new GmsBoxIn(owner: user, recipient: recipient).save()
+		
 		return recipient
 	}
 	
@@ -625,6 +628,20 @@ class GmsMessageService {
 	 * @return 에러코드
 	 */
 	def sendEMAIL(GmsMessage message, GmsMessageRecipient recipient) {
+		if(message.senderEmail == null){
+			return 'Invalid sender email'
+		}
+		if(recipient.email == null){
+			return 'Invalid recipient email'
+		}
+
+		mailService.sendMail {
+							from "${message.senderName}<${message.senderEmail}>"
+						    to "${recipient.name}<${recipient.email}>"
+						    subject recipient.subject
+							html recipient.content
+					}
+		return null
 	}
 	
 	/**

@@ -39,7 +39,7 @@ class GmsConfigService {
 					name: '발송관리자',
 					phoneNumber: '-',
 					registrationId: '-',
-					email: 'gmsmaster@gmail.com',
+					email: 'gmssendmaster@gmail.com',
 					isSendable: true,
 					enabled: true
 					)
@@ -93,13 +93,13 @@ class GmsConfigService {
 //						recipientId: 'max3', trMsg: 'Test3').save()
 //		}
 		
-		def m = new GmsMessage(reservationTime: new Date(),
-			subject: '${name}님 Hello!', 
-			content: '${name}님의 아이디는 ${userId}입니다.',
-			recipientUserId: 'dong'
-			//recipientFilter: "user_id LIKE 'ddong%'"
-			).save()
-		gmsMessageService.submit(m)
+//		def m = new GmsMessage(reservationTime: new Date(),
+//			subject: '${name}님 Hello!', 
+//			content: '${name}님의 아이디는 ${userId}입니다.',
+//			recipientUserId: 'dong'
+//			//recipientFilter: "user_id LIKE 'ddong%'"
+//			).save()
+//		gmsMessageService.submit(m)
 		
 	}
 	
