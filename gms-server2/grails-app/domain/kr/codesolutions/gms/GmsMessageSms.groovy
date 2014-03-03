@@ -1,24 +1,14 @@
 package kr.codesolutions.gms
 
 
-class GmsMassMessageRequest {
+class GmsMessageSms {
 	static mapping = {
+		table 'SC_TRAN'
 		version false
-		id column: 'TR_NUM'
-		senderId defaultValue: "'gmsmaster'"
-		trSendstat defaultValue: "'0'"
-		trRsltstat defaultValue: "'00'"
-		trMsgtype defaultValue: "'0'"
-		instance defaultVale: "0"
-		channel defaultVale: "0"
+		id column: 'TR_NUM', generator: 'assigned'
 	}
 
-	byte instance = 0 // 서버 Instance 번호
-	byte channel = 0 // 메시지 발송 채널 번호
-	String recipientId //(수신자 userId)
-	String senderId = 'gmsmaster' //송신자 userId, default:'gmsmaster'
-	String registrationId // GCM 등록ID
-	
+	long trNum
 	Date trSenddate //메세지를 전송할 시간, 미래 시간을 넣으면 예약 발송됨
 	int  trSerialnum //고객이 발급한 번호로 NULL 값이어도 됨
 	String trId //고객이 발급한 SubId로 null값이어도 됨
@@ -41,11 +31,6 @@ class GmsMassMessageRequest {
 	String trRouteid //실제 발송한 세션 ID
 
 	static constraints = {
-		instance range: 0..99
-		channel range: 0..99
-		recipientId blank: false, maxSize: 50
-		senderId blank: false, maxSize: 50
-		registrationId nullable: true, maxSize: 255
 		trSerialnum nullable: true
 		trId nullable: true, maxSize: 16
 		trModified nullable: true
