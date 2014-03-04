@@ -8,7 +8,7 @@ import org.grails.databinding.BindingFormat
 class GmsMessage {
 	static mapping = {
 		version false
-		id generator:'sequence', params:[sequence:'SQ_GMSMESSAGE_ID']
+		id generator:'native', params:[sequence:'SQ_GMSMESSAGE_ID']
 		status index: 'IDX_GMSMESSAGE_1'
 		lastEventTime index: 'IDX_GMSMESSAGE_1'
 	}
@@ -66,7 +66,7 @@ class GmsMessage {
 		senderName nullable: true, maxSize: 50
 		senderPhoneNumber nullable: true, maxSize: 20
 		senderRegistrationId nullable: true, maxSize: 255
-		senderEmail nullable: true, maxSize: 50
+		senderEmail nullable: true, email: true, maxSize: 50
 		recipientUserId nullable: true, maxSize: 50
 		recipientGroup nullable: true
 		recipientFilter nullable: true, maxSize: 255

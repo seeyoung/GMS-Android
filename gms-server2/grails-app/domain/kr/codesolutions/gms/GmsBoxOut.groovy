@@ -5,7 +5,7 @@ import java.util.Date;
 class GmsBoxOut {
 	static mapping = {
 		version false
-		id generator:'sequence', params:[sequence:'SQ_GMSBOXOUT_ID']
+		id generator:'native', params:[sequence:'SQ_GMSBOXOUT_ID']
 	}
 
 	static belongsTo = [owner:GmsUser]

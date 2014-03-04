@@ -6,7 +6,7 @@ import kr.codesolutions.gms.constants.MessageStatus
 class GmsQueuePublish {
 	static mapping = {
 		version false
-		id generator:'sequence', params:[sequence:'SQ_GMSQUEUEPUBLISH_ID']
+		id generator:'native', params:[sequence:'SQ_GMSQUEUEPUBLISH_ID']
 		instance index: 'IDX_GMSQUEUEPUBLISH_1'
 	}
 	

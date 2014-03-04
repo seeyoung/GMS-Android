@@ -6,7 +6,7 @@ import kr.codesolutions.gms.constants.MessageStatus
 class GmsBoxResend {
 	static mapping = {
 		version false
-		id generator:'sequence', params:[sequence:'SQ_GMSBOXSEND_ID']
+		id generator:'native', params:[sequence:'SQ_GMSBOXSEND_ID']
 	}
 	
 	GmsMessage message

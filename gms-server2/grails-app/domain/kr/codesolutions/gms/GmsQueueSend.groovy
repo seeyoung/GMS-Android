@@ -6,7 +6,7 @@ import kr.codesolutions.gms.constants.MessageStatus
 class GmsQueueSend {
 	static mapping = {
 		version false
-		id generator:'sequence', params:[sequence:'SQ_GMSQUEUESEND_ID']
+		id generator:'native', params:[sequence:'SQ_GMSQUEUESEND_ID']
 		instance index: 'IDX_GMSQUEUESEND_1'
 		channel index: 'IDX_GMSQUEUESEND_1'
 	}

@@ -6,7 +6,7 @@ import kr.codesolutions.gms.constants.SendType
 class GmsMessageRecipient {
 	static mapping = {
 		version false
-		id generator:'sequence', params:[sequence:'SQ_GMSRECIPIENT_ID']
+		id generator:'native', params:[sequence:'SQ_GMSRECIPIENT_ID']
 		status index: 'IDX_GMSRECIPIENT_1'
 		lastEventTime index: 'IDX_GMSRECIPIENT_1'
 	}
@@ -45,7 +45,7 @@ class GmsMessageRecipient {
 		name blank: false, maxSize: 50
 		phoneNumber nullable: true, maxSize: 20
 		registrationId nullable: true, maxSize: 255
-		email nullable: true, maxSize: 50
+		email nullable: true, email: true, maxSize: 50
 		sendType nullable: true, maxSize: 10
 		subject blank: false, maxSize: 255
 		content blank: false, maxSize: 2000

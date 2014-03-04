@@ -6,7 +6,7 @@ import kr.codesolutions.gms.constants.MessageStatus
 class GmsQueueSubmit {
 	static mapping = {
 		version false
-		id generator:'sequence', params:[sequence:'SQ_GMSQUEUEDRAFT_ID']
+		id generator:'native', params:[sequence:'SQ_GMSQUEUEDRAFT_ID']
 	}
 	
 	GmsMessage message

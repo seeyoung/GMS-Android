@@ -6,7 +6,7 @@ import kr.codesolutions.gms.constants.MessageStatus
 class GmsQueueWait {
 	static mapping = {
 		version false
-		id generator:'sequence', params:[sequence:'SQ_GMSQUEUEWAIT_ID']
+		id generator:'native', params:[sequence:'SQ_GMSQUEUEWAIT_ID']
 		instance index: 'IDX_GMSQUEUEWAIT_1'
 	}
 	

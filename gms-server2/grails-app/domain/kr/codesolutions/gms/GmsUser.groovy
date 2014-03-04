@@ -5,7 +5,7 @@ import java.util.Date;
 class GmsUser {
 	static mapping = {
 		version false
-		id generator:'sequence', params:[sequence:'SQ_GMSUSER_ID']
+		id generator:'native', params:[sequence:'SQ_GMSUSER_ID']
 		name index: 'IDX_GMSUSER_1'
 		phoneNumber index: 'IDX_GMSUSER_1'
 		registrationId index: 'IDX_GMSUSER_2'
@@ -30,7 +30,7 @@ class GmsUser {
 		name blank: false, maxSize: 50
 		phoneNumber nullable: true, maxSize: 20
 		registrationId nullable: true, maxSize: 255
-		email nullable: true, maxSize: 50
+		email nullable: true, email: true, maxSize: 50
 		errorCount min: 0, max: 3
 	}
 	
