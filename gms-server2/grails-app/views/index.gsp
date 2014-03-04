@@ -86,7 +86,7 @@
 				$.ajax({
 						type: "POST",
 						url: "/gms/message/send",
-						data: {recipientUserId:"max",senderUserId:"dong",subject:"응급상황 발생!",content:contentHtml},
+						data: {recipientUserId:"max",senderUserId:"dong",sendPolicy:"SMS",subject:"응급상황 발생!",content:contentHtml},
 						//data: {id:"34", registrationId:"APA91bEkIO2dj4nvpp-2EuhPA7BO6iOED84K0NuG1oIHsoBgZhuMOSLSMUD3PzqT_cwqu0WC_Mka2OG1kRRawSN9QFYy1uMnJZKFrZB6Ncy_T5TYUFcx3NuQzbKj7K9uFX__qLrVSBQIRuU1eMRx1b-NypoDMYBo4g"},
 						dataType: "text",
 						success: function(result){
@@ -109,7 +109,9 @@
 				<li>> <g:link controller="GmsMessage" action="create"><g:message code="default.menu.message.label" default="Compose"/></g:link></li>
 				<li>> <g:link controller="GmsMessage"><g:message code="default.menu.boxOut.label" default="Sents"/></g:link></li>
 				<li>> <g:link controller="GmsUser"><g:message code="default.menu.user.label" default="Users"/></g:link></li>
-				<li>> <g:link controller="GmsUserGroup"><g:message code="default.menu.group.lable" default="Groups"/></g:link></li>
+				<li>> <g:link controller="GmsUserGroup"><g:message code="default.menu.group.label" default="Groups"/></g:link></li>
+				<li>> <g:link controller="GmsStatus"><g:message code="default.menu.status.label" default="Status"/></g:link></li>
+				<li>> <g:link controller="GmsInstance"><g:message code="default.menu.instance.label" default="Instance"/></g:link></li>
 			</ul>
 			<!-- 
 			<h1>Application Status</h1>
@@ -148,10 +150,13 @@
 				<a href="/gms/gms-android.apk">Download Test App</a>
 			</ul>
 			<ul>
-				<a href="/gms/gmsConfig/initData">Data initialize</a>
+				<a href="/gms/gmsConfig/initData">Initialize Datas</a>
 			</ul>
 			<ul>
-				<textArea id="content" rows="5" cols="40"><html><head><meta http-equiv='Content-Type' content='text/html; charset=UTF-8'/></head><body>김아무개님 응급상황발생!\n보호자께서는 즉시 <a href='tel:010-2829-5845'>010-2829-5845</a> 으로 연락 바랍니다.</body></html></textArea>					
+				<a href="/gms/gmsConfig/testData">Generate test datas</a>
+			</ul>
+			<ul>
+				<textArea id="content" rows="4" cols="40"><html><head><meta http-equiv='Content-Type' content='text/html; charset=UTF-8'/></head><body>김아무개님 응급상황발생!\n보호자께서는 즉시 <a href='tel:010-2829-5845'>010-2829-5845</a> 으로 연락 바랍니다.</body></html></textArea>					
 			</ul>
 			<!-- 
 			<div id="controller-list" role="navigation">

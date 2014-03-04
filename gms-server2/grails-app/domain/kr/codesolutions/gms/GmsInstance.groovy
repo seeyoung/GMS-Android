@@ -10,8 +10,10 @@ class GmsInstance {
 	}
 	
 	byte instanceId = 1 // 서버 Instance 번호
-	boolean autoStart = true // 메시지 작업 자동시작
-	boolean isRunning = true // Instance가 가동중인지 여부 
+	String host = 'localhost'
+	int port = 8080
+	boolean autoStart = false // 메시지 작업 자동시작
+	boolean isRunning = false // Instance가 가동중인지 여부 
 	String channels = '1..1' // 전송채널 범위 1..20 범위내 (예:1..5 -> 1,2,3,4,5  5개 채널로 전송작업 동시진행)
 	Range getChannelRange(){ Eval.me(channels) }
 	int queueSize = 100 // 전송단위(예:100  1개 채널이 1회에 100개씩 전송)
@@ -33,16 +35,17 @@ class GmsInstance {
 
 	static constraints = {
 		instanceId range: 1..99
+		host maxSize: 20
 		channels maxSize: 6
 		queueSize range: 100..1000
-		distributeIntervalSeconds range: 1..120
-		publishIntervalSeconds range: 1..120
-		collectIntervalSeconds range: 1..120
-		postIntervalSeconds range: 1..120
-		sendIntervalSeconds range: 1..120
-		terminateIntervalSeconds range: 1..120
-		preserveDays range: 1..120
-		resendPendingSeconds range: 1..120
+		distributeIntervalSeconds range: 0..120
+		publishIntervalSeconds range: 0..120
+		collectIntervalSeconds range: 0..120
+		postIntervalSeconds range: 0..120
+		sendIntervalSeconds range: 0..120
+		terminateIntervalSeconds range: 0..120
+		preserveDays range: 0..120
+		resendPendingSeconds range: 0..120
 	}
 	
 	def beforeInsert() {

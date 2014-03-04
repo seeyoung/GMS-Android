@@ -19,7 +19,12 @@ class GmsConfigController {
     def initData() {
 		gmsConfigService.initData()
 		
-		render 'Data initialized..'
+		render 'Datas initialized...'
     }
 
-}
+   def testData() {
+		gmsConfigService.testData()
+		
+		render 'Test datas generated...'
+    }
+ }
