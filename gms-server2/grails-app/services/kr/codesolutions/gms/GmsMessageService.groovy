@@ -544,7 +544,7 @@ class GmsMessageService {
 	 * @param recipient
 	 * @return
 	 */
-	def send(GmsMessage message, GmsMessageRecipient recipient){
+	def String send(GmsMessage message, GmsMessageRecipient recipient){
 		def returnCode = null
 		Environment.executeForCurrentEnvironment {
 			production {
@@ -585,7 +585,7 @@ class GmsMessageService {
 	 * @param recipient
 	 * @return 에러코드
 	 */
-	def sendGCM(GmsMessage message, GmsMessageRecipient recipient) {
+	def String sendGCM(GmsMessage message, GmsMessageRecipient recipient) {
 		if(recipient.registrationId == null){
 			return 'Invalid registrationId'
 		}
@@ -617,7 +617,25 @@ class GmsMessageService {
 	 * @param recipient
 	 * @return 에러코드
 	 */
-	def sendSMS(GmsMessage message, GmsMessageRecipient recipient) {
+	def String sendSMS(GmsMessage message, GmsMessageRecipient recipient) {
+		if(message.senderPhoneNumber == null){
+			return 'Invalid sender phoneNumber'
+		}
+		if(recipient.phoneNumber == null){
+			return 'Invalid recipient phoneNumber'
+		}
+		def sms = new GmsMessageSms(message: message,
+						reservationTime: message.reservationTime,
+						subject: recipient.subject,
+						content: recipient.content,
+						userId: recipient.userId,
+						name: recipient.name,
+						phoneNumber: recipient.phoneNumber,
+						senderPhoneNumber: message.senderPhoneNumber
+						)
+		sms.id = recipient.id
+		sms.save()
+		return null
 	}
 	
 	/**
@@ -627,7 +645,7 @@ class GmsMessageService {
 	 * @param recipient
 	 * @return 에러코드
 	 */
-	def sendEMAIL(GmsMessage message, GmsMessageRecipient recipient) {
+	def String sendEMAIL(GmsMessage message, GmsMessageRecipient recipient) {
 		if(message.senderEmail == null){
 			return 'Invalid sender email'
 		}
