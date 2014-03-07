@@ -27,13 +27,17 @@
 					
 						<g:sortableColumn property="host" title="${message(code: 'gmsInstance.host.label', default: 'Host')}" />
 					
+						<g:sortableColumn property="isRunning" title="${message(code: 'gmsInstance.isRunning.label', default: 'Is Running')}" />
+					
+						<g:sortableColumn property="autoStart" title="${message(code: 'gmsInstance.autoStart.label', default: 'Auto Start')}" />
+					
 						<g:sortableColumn property="channels" title="${message(code: 'gmsInstance.channels.label', default: 'Channels')}" />
 					
 						<g:sortableColumn property="queueSize" title="${message(code: 'gmsInstance.queueSize.label', default: 'Queue Size')}" />
 					
-						<g:sortableColumn property="distributeIntervalSeconds" title="${message(code: 'gmsInstance.distributeIntervalSeconds.label', default: 'Distribute Interval Seconds')}" />
-					
-						<g:sortableColumn property="publishIntervalSeconds" title="${message(code: 'gmsInstance.publishIntervalSeconds.label', default: 'Publish Interval Seconds')}" />
+						<g:sortableColumn property="sendIntervalSeconds" title="${message(code: 'gmsInstance.sendIntervalSeconds.label', default: 'Send Interval Seconds')}" />
+						
+						<g:sortableColumn property="preserveDays" title="${message(code: 'gmsInstance.preserveDays.label', default: 'Preserve Days')}" />
 					
 					</tr>
 				</thead>
@@ -41,17 +45,21 @@
 				<g:each in="${gmsInstanceInstanceList}" status="i" var="gmsInstanceInstance">
 					<tr class="${(i % 2) == 0 ? 'even' : 'odd'}">
 					
-						<td><g:link action="show" id="${gmsInstanceInstance.id}">${fieldValue(bean: gmsInstanceInstance, field: "instanceId")}</g:link></td>
+						<td style="text-align:center"><g:link action="show" id="${gmsInstanceInstance.id}">${gmsInstanceInstance.id}</g:link></td>
 					
-						<td>${fieldValue(bean: gmsInstanceInstance, field: "host")}</td>
+						<td style="text-align:center">${gmsInstanceInstance.host}:${gmsInstanceInstance.port}</td>
 					
-						<td>${fieldValue(bean: gmsInstanceInstance, field: "channels")}</td>
+						<td style="text-align:center">${gmsInstanceInstance.isRunning?'Running':'Stopped'}</td>
+						
+						<td style="text-align:center"><g:checkBox name="autoStart" value="${gmsInstanceInstance.autoStart}" disabled="disabled" /></td>
+						
+						<td style="text-align:center">${gmsInstanceInstance.channels}</td>
 					
-						<td>${fieldValue(bean: gmsInstanceInstance, field: "queueSize")}</td>
+						<td style="text-align:center">${gmsInstanceInstance.queueSize}</td>
 					
-						<td>${fieldValue(bean: gmsInstanceInstance, field: "distributeIntervalSeconds")}</td>
+						<td style="text-align:center">${gmsInstanceInstance.sendIntervalSeconds}</td>
 					
-						<td>${fieldValue(bean: gmsInstanceInstance, field: "publishIntervalSeconds")}</td>
+						<td style="text-align:center">${gmsInstanceInstance.preserveDays}</td>
 					
 					</tr>
 				</g:each>

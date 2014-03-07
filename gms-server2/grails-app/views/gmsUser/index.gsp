@@ -66,37 +66,25 @@
 					
 						<g:sortableColumn property="isSendable" title="${message(code: 'gmsUser.isSendable.label', default: 'isSendable')}"/>
 					
-						<g:sortableColumn property="errorCount" title="${message(code: 'gmsUser.errorCount.label', default: 'Error Count')}"/>
-					
-						<g:sortableColumn property="modifiedTime" title="${message(code: 'gmsUser.modifiedTime.label', default: 'Modified Time')}"/>
-
-						<g:sortableColumn property="createdTime" title="${message(code: 'gmsUser.createdTime.label', default: 'Created Time')}"/>
-					
 					</tr>
 				</thead>
 				<tbody>
 				<g:each in="${gmsUserInstanceList}" status="i" var="gmsUserInstance">
 					<tr class="${(i % 2) == 0 ? 'even' : 'odd'}">
 					
-						<td><g:link action="show" id="${gmsUserInstance.id}">${fieldValue(bean: gmsUserInstance, field: "userId")}</g:link></td>
+						<td><g:link action="show" id="${gmsUserInstance.id}">${gmsUserInstance.userId}</g:link></td>
 					
-						<td>${fieldValue(bean: gmsUserInstance, field: "name")}</td>
+						<td>${gmsUserInstance.name}</td>
 					
-						<td>${fieldValue(bean: gmsUserInstance, field: "phoneNumber")}</td>
+						<td>${gmsUserInstance.phoneNumber}</td>
 						
 						<td style="text-align:center"><g:checkBox name="registrationId" value="${gmsUserInstance.registrationId?true:false}" disabled="disabled" /></td>
 					
-						<td>${fieldValue(bean: gmsUserInstance, field: "email")}</td>
+						<td>${gmsUserInstance.email}</td>
 					
 						<td style="text-align:center"><g:checkBox name="enabled" value="${gmsUserInstance.enabled}" disabled="disabled" /></td>
 					
 						<td style="text-align:center"><g:checkBox name="isSendable" value="${gmsUserInstance.isSendable}" disabled="disabled" /></td>
-					
-						<td style="text-align:center">${fieldValue(bean: gmsUserInstance, field: "errorCount")}</td>
-					
-						<td><g:formatDate date="${gmsUserInstance.modifiedTime}" format="MM/dd HH:mm:ss"/></td>
-
-						<td><g:formatDate date="${gmsUserInstance.createdTime}" format="MM/dd HH:mm:ss"/></td>
 					
 					</tr>
 				</g:each>

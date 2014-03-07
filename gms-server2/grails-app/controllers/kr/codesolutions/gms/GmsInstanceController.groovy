@@ -21,18 +21,48 @@ class GmsInstanceController {
         respond GmsInstance.list(params), model:[gmsInstanceInstanceCount: GmsInstance.count()]
     }
 
+    @Transactional
     def start(GmsInstance gmsInstanceInstance) {
-		if(gmsInstanceInstance != null){
-			gmsInstanceService.start(gmsInstanceInstance)
+        if (gmsInstanceInstance == null) {
+            notFound()
+            return
+        }
+		def started = gmsInstanceService.start(gmsInstanceInstance)
+		// 요청 Instance 값이 있으면 Remote 요청임
+		if(params.requestInstance){
+			render text: started, status: OK
+		}else{
+			flash.message = message(code: started?'default.started.message':'default.not.started.message', args: [message(code: 'gmsInstance.label', default: 'Instance'), gmsInstanceInstance.id, "${gmsInstanceInstance.host}:${gmsInstanceInstance.port}"])
+			respond gmsInstanceInstance, view:'show'
 		}
     }
 	
+    @Transactional
     def stop(GmsInstance gmsInstanceInstance) {
-		if(gmsInstanceInstance != null){
-			gmsInstanceService.stop(gmsInstanceInstance)
+        if (gmsInstanceInstance == null) {
+            notFound()
+            return
+        }
+		def stopped = gmsInstanceService.stop(gmsInstanceInstance)
+		// 요청 Instance 값이 있으면 Remote 요청임
+		if(params.requestInstance){
+			render text: stopped, status: OK
+		}else{
+	        flash.message = message(code: stopped?'default.stopped.message':'default.not.stopped.message', args: [message(code: 'gmsInstance.label', default: 'Instance'), gmsInstanceInstance.id, "${gmsInstanceInstance.host}:${gmsInstanceInstance.port}"])
+			respond gmsInstanceInstance, view:'show'
 		}
     }
 	
+	@Transactional
+	def remoteStop(GmsInstance gmsInstanceInstance) {
+		if (gmsInstanceInstance == null) {
+			notFound()
+			return
+		}
+		def stopped = gmsInstanceService.stop(gmsInstanceInstance)
+		render text: stopped, status: OK
+	}
+
     def show(GmsInstance gmsInstanceInstance) {
         respond gmsInstanceInstance
     }

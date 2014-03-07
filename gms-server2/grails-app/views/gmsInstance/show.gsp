@@ -22,23 +22,26 @@
 			</g:if>
 			<ol class="property-list gmsInstance">
 			
-				<g:if test="${gmsInstanceInstance?.instanceId}">
 				<li class="fieldcontain">
 					<span id="instanceId-label" class="property-label"><g:message code="gmsInstance.instanceId.label" default="Instance Id" /></span>
 					
-						<span class="property-value" aria-labelledby="instanceId-label"><g:fieldValue bean="${gmsInstanceInstance}" field="instanceId"/></span>
+						<span class="property-value" aria-labelledby="instanceId-label">${gmsInstanceInstance.id}</span>
 					
 				</li>
-				</g:if>
 			
-				<g:if test="${gmsInstanceInstance?.isRunning}">
 				<li class="fieldcontain">
 					<span id="isRunning-label" class="property-label"><g:message code="gmsInstance.isRunning.label" default="Is Running" /></span>
 					
-						<span class="property-value" aria-labelledby="isRunning-label"><g:formatBoolean boolean="${gmsInstanceInstance?.isRunning}" /></span>
+						<span class="property-value" aria-labelledby="isRunning-label">${gmsInstanceInstance.isRunning?'Running':'Stopped'}
+						<g:if test="${gmsInstanceInstance.isRunning}">
+							<g:link action="stop" resource="${gmsInstanceInstance}"><g:message code="default.button.stop.label" default="Stop" /></g:link>
+						</g:if>
+						<g:else>
+							<g:link action="start" resource="${gmsInstanceInstance}"><g:message code="default.button.start.label" default="Start" /></g:link>
+						</g:else>
+						</span>
 					
 				</li>
-				</g:if>
 			
 				<g:if test="${gmsInstanceInstance?.host}">
 				<li class="fieldcontain">
@@ -61,7 +64,7 @@
 				<li class="fieldcontain">
 					<span id="autoStart-label" class="property-label"><g:message code="gmsInstance.autoStart.label" default="Auto Start" /></span>
 					
-						<span class="property-value" aria-labelledby="autoStart-label"><g:formatBoolean boolean="${gmsInstanceInstance?.autoStart}" /></span>
+						<span class="property-value" aria-labelledby="autoStart-label"><g:checkBox name="autoStart" value="${gmsInstanceInstance.autoStart}" disabled="disabled" /></span>
 					
 				</li>
 			
@@ -128,6 +131,15 @@
 				</li>
 				</g:if>
 			
+				<g:if test="${gmsInstanceInstance?.completeIntervalSeconds}">
+				<li class="fieldcontain">
+					<span id="completeIntervalSeconds-label" class="property-label"><g:message code="gmsInstance.completeIntervalSeconds.label" default="Complete Interval Seconds" /></span>
+					
+						<span class="property-value" aria-labelledby="completeIntervalSeconds-label"><g:fieldValue bean="${gmsInstanceInstance}" field="completeIntervalSeconds"/></span>
+					
+				</li>
+				</g:if>
+			
 				<g:if test="${gmsInstanceInstance?.terminateIntervalSeconds}">
 				<li class="fieldcontain">
 					<span id="terminateIntervalSeconds-label" class="property-label"><g:message code="gmsInstance.terminateIntervalSeconds.label" default="Terminate Interval Seconds" /></span>
@@ -155,15 +167,6 @@
 				</li>
 				</g:if>
 			
-				<g:if test="${gmsInstanceInstance?.completeIntervalSeconds}">
-				<li class="fieldcontain">
-					<span id="completeIntervalSeconds-label" class="property-label"><g:message code="gmsInstance.completeIntervalSeconds.label" default="Complete Interval Seconds" /></span>
-					
-						<span class="property-value" aria-labelledby="completeIntervalSeconds-label"><g:fieldValue bean="${gmsInstanceInstance}" field="completeIntervalSeconds"/></span>
-					
-				</li>
-				</g:if>
-			
 				<g:if test="${gmsInstanceInstance?.createdTime}">
 				<li class="fieldcontain">
 					<span id="createdTime-label" class="property-label"><g:message code="gmsInstance.createdTime.label" default="Created Time" /></span>
@@ -183,7 +186,7 @@
 				</g:if>
 			
 			</ol>
-			<g:form url="[resource:gmsInstanceInstance, action:'delete']" method="DELETE">
+			<g:form url="[resource:gmsInstanceInstance, action:'edit']" method="PUT">
 				<fieldset class="buttons">
 					<g:link class="edit" action="edit" resource="${gmsInstanceInstance}"><g:message code="default.button.edit.label" default="Edit" /></g:link>
 				</fieldset>

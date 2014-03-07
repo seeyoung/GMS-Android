@@ -6,10 +6,9 @@ import kr.codesolutions.*
 class GmsInstance {
 	static mapping = {
 		version false
-		id column: 'instanceId', generator: 'assigned'
+		id column: 'INSTANCE_ID', generator: 'assigned'
 	}
-	
-	byte instanceId = 1 // 서버 Instance 번호
+	int id
 	String host = 'localhost'
 	int port = 8080
 	boolean autoStart = false // 메시지 작업 자동시작
@@ -34,15 +33,16 @@ class GmsInstance {
 	static transients = ['channelRange']
 
 	static constraints = {
-		instanceId range: 1..99
-		host maxSize: 20
-		channels maxSize: 6
+		id range:1..99
+		host blank:false, maxSize: 20
+		channels blank:false, maxSize: 6
 		queueSize range: 100..1000
 		distributeIntervalSeconds range: 0..120
 		publishIntervalSeconds range: 0..120
 		collectIntervalSeconds range: 0..120
 		postIntervalSeconds range: 0..120
 		sendIntervalSeconds range: 0..120
+		completeIntervalSeconds range: 0..120
 		terminateIntervalSeconds range: 0..120
 		preserveDays range: 0..120
 		resendPendingSeconds range: 0..120
