@@ -110,7 +110,7 @@
 				<li>> <g:link controller="GmsMessage"><g:message code="default.menu.boxOut.label" default="Sents"/></g:link></li>
 				<li>> <g:link controller="GmsUser"><g:message code="default.menu.user.label" default="Users"/></g:link></li>
 				<li>> <g:link controller="GmsUserGroup"><g:message code="default.menu.group.label" default="Groups"/></g:link></li>
-				<li>> <g:link controller="GmsStatus"><g:message code="default.menu.status.label" default="Status"/></g:link></li>
+				<li>> <g:link controller="GmsStatusQueue"><g:message code="default.menu.status.label" default="Status"/></g:link></li>
 				<li>> <g:link controller="GmsInstance"><g:message code="default.menu.instance.label" default="Instance"/></g:link></li>
 			</ul>
 			<!-- 

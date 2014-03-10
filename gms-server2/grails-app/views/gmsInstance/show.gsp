@@ -32,12 +32,12 @@
 				<li class="fieldcontain">
 					<span id="isRunning-label" class="property-label"><g:message code="gmsInstance.isRunning.label" default="Is Running" /></span>
 					
-						<span class="property-value" aria-labelledby="isRunning-label">${gmsInstanceInstance.isRunning?'Running':'Stopped'}
+						<span class="property-value" aria-labelledby="isRunning-label">${gmsInstanceInstance.isRunning?'Running':'Stopped'} 
 						<g:if test="${gmsInstanceInstance.isRunning}">
-							<g:link action="stop" resource="${gmsInstanceInstance}"><g:message code="default.button.stop.label" default="Stop" /></g:link>
+							[ <g:link action="stop" resource="${gmsInstanceInstance}"><g:message code="default.button.stop.label" default="Stop" /></g:link> ]
 						</g:if>
 						<g:else>
-							<g:link action="start" resource="${gmsInstanceInstance}"><g:message code="default.button.start.label" default="Start" /></g:link>
+							[ <g:link action="start" resource="${gmsInstanceInstance}"><g:message code="default.button.start.label" default="Start" /></g:link> ]
 						</g:else>
 						</span>
 					

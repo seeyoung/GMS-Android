@@ -19,8 +19,13 @@ class GmsMessageController {
         params.max = Math.min(max ?: 10, 100)
 		params.sort = sort?:'id'
 		params.order = order?:'desc'
-		
-        respond GmsMessage.list(params), model:[gmsMessageInstanceCount: GmsMessage.count()]
+		def results
+		if(params?.status){
+			results = GmsMessage.where{status == params.status}.list(params)
+		}else{
+			results = GmsMessage.list(params)
+		}
+        respond results, model:[gmsMessageInstanceCount: results.size()]
     }
 
     def show(GmsMessage gmsMessageInstance) {

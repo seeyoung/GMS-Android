@@ -20,12 +20,27 @@
 			<g:if test="${flash.message}">
 				<div class="message" role="status">${flash.message}</div>
 			</g:if>
+			
+			<g:form url="[action:'index']" method="PUT" >
+			<fieldset style="text-align:left; background-color:#ffffff;">
+				<label for="status">
+					<g:message code="gmsMessage.status.label" default="Status" />
+				</label>
+				<g:select name="status" from="${kr.codesolutions.gms.constants.MessageStatus}" optionKey="value" optionValue="value" value="${params?.status}" noSelection="['':'-Choose one-']"/>
+			</fieldset>
+			<fieldset class="buttons buttons-whitebar" style="text-align:right; background-color:#ffffff;">
+				<g:actionSubmit class="search" action="index" value="${message(code:'default.button.search.label', default:'Search')}" />
+			</fieldset>
+			</g:form>
+			
 			<table>
 			<thead>
 					<tr>
 					
 						<g:sortableColumn property="subject" title="${message(code: 'gmsMessage.subject.label', default: 'Subject')}" />
 					
+						<g:sortableColumn property="status" title="${message(code: 'gmsMessage.status.label', default: 'Status')}" />
+
 						<g:sortableColumn property="submitTime" title="${message(code: 'gmsMessage.submitTime.label', default: 'Submit Time')}" />
 					
 						<g:sortableColumn property="reservationTime" title="${message(code: 'gmsMessage.reservationTime.label', default: 'Reservation Time')}" />
@@ -44,19 +59,21 @@
 				<g:each in="${gmsMessageInstanceList}" status="i" var="gmsMessageInstance">
 					<tr class="${(i % 2) == 0 ? 'even' : 'odd'}">
 					
-						<td><g:link action="show" id="${gmsMessageInstance.id}">${fieldValue(bean: gmsMessageInstance, field: "subject")}</g:link></td>
+						<td><g:link action="show" id="${gmsMessageInstance.id}">${gmsMessageInstance.subject}</g:link></td>
 					
-						<td><g:formatDate date="${gmsMessageInstance.submitTime}"  format="MM/dd HH:mm:ss" /></td>
+						<td style="text-align:center">${gmsMessageInstance.status}</td>
 					
-						<td><g:formatDate date="${gmsMessageInstance.reservationTime}"  format="MM/dd HH:mm:ss" /></td>
+						<td style="text-align:center"><g:formatDate date="${gmsMessageInstance.submitTime}"  format="MM/dd HH:mm:ss" /></td>
 					
-						<td style="text-align:center">${fieldValue(bean: gmsMessageInstance, field: "recipientCount")}</td>
+						<td style="text-align:center"><g:formatDate date="${gmsMessageInstance.reservationTime}"  format="MM/dd HH:mm:ss" /></td>
 					
-						<td style="text-align:center">${fieldValue(bean: gmsMessageInstance, field: "sentCount")}</td>
+						<td style="text-align:center"><g:formatNumber number="${gmsMessageInstance.recipientCount}" format="###,###,##0" /></td>
 					
-						<td><g:formatDate date="${gmsMessageInstance.sentTime}"  format="MM/dd HH:mm:ss" /></td>
+						<td style="text-align:center"><g:formatNumber number="${gmsMessageInstance.sentCount}" format="###,###,##0" /></td>
 					
-						<td><g:formatDate date="${gmsMessageInstance.readTime}"  format="MM/dd HH:mm:ss" /></td>
+						<td style="text-align:center"><g:formatDate date="${gmsMessageInstance.sentTime}"  format="MM/dd HH:mm:ss" /></td>
+					
+						<td style="text-align:center"><g:formatDate date="${gmsMessageInstance.readTime}"  format="MM/dd HH:mm:ss" /></td>
 					
 					</tr>
 				</g:each>

@@ -6,6 +6,9 @@ import groovy.sql.Sql
 import groovy.text.GStringTemplateEngine
 import groovy.text.Template
 import groovy.time.TimeCategory
+
+import java.sql.ResultSet
+
 import kr.codesolutions.gms.constants.MessageStatus
 import kr.codesolutions.gms.constants.SendPolicy
 import kr.codesolutions.gms.constants.SendType
@@ -507,7 +510,7 @@ class GmsMessageService {
 			terminated = criteria.updateAll(status: MessageStatus.TERMINATED, terminatedTime: new Date())
 			if(terminated > 0){
 				moved = sql.executeUpdate("INSERT INTO ${Sql.expand(targetTable)} SELECT * FROM ${Sql.expand(sourceTable)} WHERE status = 'TERMINATED'")
-				sql.executeUpdate("DELETE FROM gms_box_in WHERE recipient_id IN(SELECT id FROM ${Sql.expand(sourceTable)} WHERE status = 'TERMINATED')")
+				//sql.executeUpdate("DELETE FROM gms_box_in WHERE recipient_id IN(SELECT id FROM ${Sql.expand(sourceTable)} WHERE status = 'TERMINATED')")
 				deleted =  sql.executeUpdate("DELETE FROM ${Sql.expand(sourceTable)} WHERE status = 'TERMINATED'")
 				log.info "Terminated (Intance: #${instanceId}, terminateDate: ${terminateDate}): ${terminated} messages terminated, ${moved} moved to Log, ${deleted} deleted"
 			}
@@ -717,6 +720,23 @@ class GmsMessageService {
 	 //		}
 	 //	}
 	 //
-	 
+	
+	def queueStatus(){
+		GmsQueueSubmit.withSession { session ->
+			List<GmsStatusQueue> results = []
+			def sql = new Sql(session.connection())
+			sql.eachRow("""
+					SELECT 'SUBMIT' AS queueName, SUM(recipient_count) AS messageSize, COUNT(1) AS queueSize FROM gms_queue_submit
+					UNION ALL
+					SELECT 'PUBLISH' AS queueName, SUM(recipient_count) AS messageSize, COUNT(1) AS queueSize FROM gms_queue_publish
+					UNION ALL
+					SELECT 'WAIT' AS queueName, SUM(recipient_count) AS messageSize, COUNT(1) AS queueSize FROM gms_queue_wait
+					UNION ALL
+					SELECT 'SEND' AS queueName, COUNT(1) AS messageSize, COUNT(1) AS queueSize FROM gms_queue_send
+					"""){ row -> results.add(new GmsStatusQueue(queueName: row.queueName, messageSize: row.messageSize, queueSize: row.queueSize))}
+			return results
+		}
+	}
+
 	 
 }
