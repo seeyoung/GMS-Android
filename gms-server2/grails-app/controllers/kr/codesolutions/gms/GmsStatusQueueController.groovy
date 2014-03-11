@@ -7,12 +7,12 @@ import groovy.sql.Sql
 @Transactional(readOnly = true)
 class GmsStatusQueueController {
 
-	def gmsMessageService
+	def gmsStatusService
 	
     def index(Integer max) {
         params.max = Math.min(max ?: 10, 100)
 		
-		def results = gmsMessageService.queueStatus()
+		def results = gmsStatusService.statusQueue()
 		log.info "size => " + results.size()
         respond results, model:[gmsStatusQueueInstanceCount: results.size()]
     }

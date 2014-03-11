@@ -3,12 +3,9 @@ package kr.codesolutions.gms
 import grails.transaction.Transactional
 import grails.util.Environment
 import groovy.sql.Sql
-import groovy.text.GStringTemplateEngine
+import groovy.text.SimpleTemplateEngine
 import groovy.text.Template
 import groovy.time.TimeCategory
-
-import java.sql.ResultSet
-
 import kr.codesolutions.gms.constants.MessageStatus
 import kr.codesolutions.gms.constants.SendPolicy
 import kr.codesolutions.gms.constants.SendType
@@ -30,7 +27,7 @@ class GmsMessageService {
 	SessionFactory sessionFactory
 	def propertyInstanceMap = org.codehaus.groovy.grails.plugins.DomainClassGrailsPlugin.PROPERTY_INSTANCE_MAP
 	def gmsInstanceLockService
-	GStringTemplateEngine templateEngine = new GStringTemplateEngine()
+	SimpleTemplateEngine templateEngine = new SimpleTemplateEngine()
 	
 	Sender gcmSender
 	def mailService
@@ -721,22 +718,4 @@ class GmsMessageService {
 	 //	}
 	 //
 	
-	def queueStatus(){
-		GmsQueueSubmit.withSession { session ->
-			List<GmsStatusQueue> results = []
-			def sql = new Sql(session.connection())
-			sql.eachRow("""
-					SELECT 'SUBMIT' AS queueName, SUM(recipient_count) AS messageSize, COUNT(1) AS queueSize FROM gms_queue_submit
-					UNION ALL
-					SELECT 'PUBLISH' AS queueName, SUM(recipient_count) AS messageSize, COUNT(1) AS queueSize FROM gms_queue_publish
-					UNION ALL
-					SELECT 'WAIT' AS queueName, SUM(recipient_count) AS messageSize, COUNT(1) AS queueSize FROM gms_queue_wait
-					UNION ALL
-					SELECT 'SEND' AS queueName, COUNT(1) AS messageSize, COUNT(1) AS queueSize FROM gms_queue_send
-					"""){ row -> results.add(new GmsStatusQueue(queueName: row.queueName, messageSize: row.messageSize, queueSize: row.queueSize))}
-			return results
-		}
-	}
-
-	 
 }
