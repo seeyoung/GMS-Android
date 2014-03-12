@@ -31,23 +31,6 @@ class MessageController {
         }
 	}
 	
-	def delete(GmsMessageRecipient gmsMessageRecipientInstance) {
-		if (gmsMessageRecipientInstance == null) {
-			notFound()
-			return
-		}
-		def gmsUserInstance = GmsUser.findByUserId(params.userId)
-		if(gmsUserInstance == null){
-			notFound()
-			return
-		}
-		gmsMessageService.deleteBoxIn(gmsUserInstance, gmsMessageRecipientInstance)
-		
-        request.withFormat {
-            '*'{ render status: OK }
-        }
-	}
-
     def send(GmsMessage gmsMessageInstance) {
 		def message = new Message()
         if (gmsMessageInstance == null) {

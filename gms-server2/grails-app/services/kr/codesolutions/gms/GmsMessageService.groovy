@@ -60,8 +60,6 @@ class GmsMessageService {
 			throw new UnexpectedRollbackException(message.error)
 		}
 		
-		new GmsBoxResend(message: message).save(flush:true)
-		
 		return message
 	}
 	
@@ -85,9 +83,6 @@ class GmsMessageService {
 			throw new UnexpectedRollbackException(message.errors)
 		}
 		message.save()
-		
-		// 보낸메시지함에 보관
-		new GmsBoxOut(owner: sender, message: message).save(flush:true)
 		
 		return message
 	}
@@ -145,26 +140,6 @@ class GmsMessageService {
 		return recipient
 	}
 	
-	/**
-	 * 
-	 * @param gmsUserInstance
-	 * @param gmsMessageRecipientInstance
-	 * @return
-	 */
-	def GmsBoxIn deleteBoxIn(GmsUser gmsUserInstance, GmsMessageRecipient gmsMessageRecipientInstance){
-		GmsBoxIn.where{owner == gmsUserInstance && recipient == gmsMessageRecipientInstance}.deleteAll()
-	}
-	
-	/**
-	 * 
-	 * @param gmsUserInstance
-	 * @param gmsMessageInstance
-	 * @return
-	 */
-	def GmsBoxOut deleteBoxOut(GmsUser gmsUserInstance, GmsMessage gmsMessageInstance){
-		GmsBoxOut.where{owner == gmsUserInstance && message == gmsMessageInstance}.deleteAll()
-	}
-
 	def GmsMessage read(GmsMessageRecipient recipient){
 		if(!recipient.isRead){
 			recipient.isRead = true
@@ -175,7 +150,6 @@ class GmsMessageService {
 			gmsMessageInstance.isRead = true
 			gmsMessageInstance.save flush:true
 		}
-		GmsBoxResend.where{message == gmsMessageInstance}.deleteAll()
 		return gmsMessageInstance
 	}
 
@@ -228,8 +202,6 @@ class GmsMessageService {
 		message.save()
 		// 발송요청
 		new GmsQueueSubmit(message: message, offset: offset?:0, end: end?:0, recipientCount: recipientCount).save()
-		// 보낸메시지함에 보관
-		new GmsBoxOut(owner: sender, message: message).save()
 		return message
 	}
 	
@@ -480,7 +452,7 @@ class GmsMessageService {
 			terminated = criteria.updateAll(status: MessageStatus.TERMINATED, terminatedTime: new Date())
 			if(terminated > 0){
 				moved = sql.executeUpdate("INSERT INTO ${Sql.expand(targetTable)} SELECT * FROM ${Sql.expand(sourceTable)} WHERE status = 'TERMINATED'")
-				sql.executeUpdate("DELETE FROM gms_box_out WHERE message_id IN(SELECT id FROM ${Sql.expand(sourceTable)} WHERE status = 'TERMINATED')")
+				//sql.executeUpdate("DELETE FROM gms_box_out WHERE message_id IN(SELECT id FROM ${Sql.expand(sourceTable)} WHERE status = 'TERMINATED')")
 				deleted =  sql.executeUpdate("DELETE FROM ${Sql.expand(sourceTable)} WHERE status = 'TERMINATED'")
 				log.info "Terminated (Intance: #${instanceId}, terminateDate: ${terminateDate}): ${terminated} messages terminated, ${moved} moved to Log, ${deleted} deleted"
 			}
